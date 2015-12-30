@@ -83,6 +83,7 @@ def create_tab_class(name):
 		'__tablename__': name,
 		'__table_args__': {'autoload':True}})
 
+
 def get_name_data(name, sex=None):
 	"""Returns series/df of births for given name. If sex specified then returns
 	series of this only. Otherwise returns df with both sexes"""
@@ -103,11 +104,61 @@ def get_name_data(name, sex=None):
 	else:
 		return name_df
 
+
+def _create_tables_core(names_list, names_df):
+	"""Use core settings"""
+	year_values = np.arange(1880,2011)
+	names_gb = names_df.groupby(names_df.name)
+	chunk_size = 50
+	time_df = pd.DataFrame(columns=['time_class', 'time_insert'],
+		index=range(chunk_size,chunk_size*300,chunk_size))
+	chunker = chunks(names_list, chunk_size)
+	# connection = engine.connect()
+	ii=0
+	for chunk in chunker:
+		print 'Chunk: %r to %r' %(ii*chunk_size, (ii+1)*chunk_size)
+		start = time.time()
+		# 1. Create table objects for current chunk
+		table_list = []
+		for name in chunk:
+			pkname = name+'_ID'
+			table_list.append(Table(name, Base.metadata,
+				Column(pkname, Integer, primary_key=True),
+				Column('m', Integer),
+				Column('f', Integer)
+			))
+
+		Base.metadata.create_all(engine)
+		print 'Time to create tables: %r' %int((time.time() - start))
+		time_df.ix[(ii+1)*chunk_size].time_class = int((time.time() - start) * 1000)
+
+		# Insert values into tables
+		start = time.time()
+		for tab in table_list:
+			tabname = tab.name
+			m_values, f_values = _get_csv_name_vals(tabname, names_gb)
+			pkname = tabname+'_ID'
+			for i,j,k in zip(year_values, m_values.births.values, f_values.births.values):
+				#Note: pass keywords as an unpacked dict for dyanmic pk keyword
+				# post = name_class(**{pk_name: i, 'm':j, 'f': k})
+				session.execute('INSERT INTO "%s" VALUES (%r, %r, %r)' %(tabname, i, j, k))
+		# session.commit()
+			# connection.execute(
+			# 	tab.insert(),
+			# 	#TODO: Rewrite this to insert rows with year, m, f values
+			# 	[{pkname: i, 'm': j, 'f': k} for i,j,k in zip(year_values, m_values.births.values, f_values.births.values)]
+			# )
+		print 'Time to insert values: %r' %int((time.time() - start))
+		time_df.ix[(ii+1)*chunk_size].time_insert = int((time.time() - start) * 1000)
+
+		time_df.to_csv('/Users/nicholasharrigan/code/babyMakers/times.csv')
+		ii+=1
+	# connection.close()
+
 def chunks(l, n):
     """Yield successive n-sized chunks from l."""
     for i in xrange(0, len(l), n):
         yield l[i:i+n]
-
 
 # for chunk in chunker:
 # 	#print 'chunk: %r' %chunk
@@ -173,11 +224,14 @@ def _populate_tables(class_list, names_gb):
 		add_list = []
 		for i,j,k in zip(year_values, m_values.births.values, f_values.births.values):
 			#Note: pass keywords as an unpacked dict for dyanmic pk keyword
-			add_list.append(name_class(**{pk_name: i, 'm':j, 'f': k}))
-		#Add all rows using add_all command
-		session.add_all(add_list)
+			#add_list.append(name_class(**{pk_name: i, 'm':j, 'f': k}))
+			post = name_class(**{pk_name: i, 'm':j, 'f': k})
+			session.add(post)
+
+		# #Add all rows using add_all command
+		# session.add_all(add_list)
 		#Force commit of all changes
-		session.commit()
+	session.commit()
 
 if __name__ == '__main__':
 
@@ -196,7 +250,8 @@ if __name__ == '__main__':
 	names_list = names_df.name.unique()
 	# names_list = ['Alan','Betty']
 	print 'Creating tables...'
-	_create_tables(names_list, names_df)
+	_create_tables_core(names_list, names_df)
+	# _create_tables(names_list, names_df)
 	#Populate new tables and commit to db
 	# print 'Populating tables...'
 	# _populate_tables(tabs, names_df)
