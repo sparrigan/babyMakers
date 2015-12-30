@@ -23,7 +23,7 @@ Base = declarative_base(engine)
 # metadata = MetaData(engine)
 Session = sessionmaker(bind=engine)
 session = Session()
-year_vals = np.arange(1880,2011)
+
 
 
 def _csv_df(path):
@@ -66,52 +66,6 @@ def _drop_tabs(s):
 	s.commit()
 	s.execute("CREATE SCHEMA public;")
 	s.commit()
-	#TODO: Add alternate that deletes each table individually if too many locks
-
-#Create classes for male and female tables
-def _create_tabs_new():
-	col_dic_m = {'__tablename__': 'male', 'name': Column('name', String(32), primary_key=True)}
-	col_dic_f = {'__tablename__': 'female', 'name': Column('name', String(32), primary_key=True)}
-	for year in year_vals:
-		col_dic_m['col'+str(year)] = Column(str(year), Integer)
-		col_dic_f['col'+str(year)] = Column(str(year), Integer)
-	Male = type('Male', (Base,), col_dic_m)
-	Female = type('Female', (Base,), col_dic_f)
-	#Create corresponding tables in database
-	#TODO: Double check that this doesn't try and create new tables if already
-	#finds __tablename__ in the DB
-	Base.metadata.create_all(engine)
-
-def _insert_all_rows(names_list, names_df, chunk_size):
-	"""Inserts rows into male and female tables for each name"""
-	#Groupby dataframe for easy access to each names time series
-	names_gb = names_df.groupby(names_df.name)
-	#Iterate over names and add rows and build query
-	i=1
-	start = time.time()
-	for name in names_list:
-		m_values, f_values = _get_csv_name_vals(name, names_gb)
-		name_str = "'"+name+"'"
-		col_names = '(name, %s)' %(str([yr for yr in year_vals])[1:-1])
-		#Only insert values if non-zero
-		if (sum(m_values.births>0) > 0):
-			ins_vals_m = '('+name_str+', '+str(m_values.births.values.tolist())[1:-1]+')'
-			ins_string_m = 'INSERT INTO "male" VALUES %s;' %ins_vals_m
-			session.execute(ins_string_m)
-		if (sum(f_values.births>0) > 0):
-			ins_vals_f = '('+name_str+', '+str(f_values.births.values.tolist())[1:-1]+')'
-			ins_string_f = 'INSERT INTO "female" VALUES %s;' %ins_vals_f
-			session.execute(ins_string_f)
-		session.commit()
-		if (i%1000 == 0):
-			print '%r names done in %r ms' %(i, int((time.time() - start) * 1000))
-			start = time.time()
-		i+=1
-		# if  (i == chunk_size):
-		# 	session.execute(insert_string)
-		# 	session.commit()
-		# 	i += 1
-
 
 #ONE FUNCTION THAT CREATES ALL CLASSES AND COMMITS TO TABLES AND IS CALLED IN NAME==MAIN
 #(PUT CREATE TABLES IN SEPERATE FUNCTION)
@@ -288,7 +242,6 @@ def _populate_tables(class_list, names_gb):
 
 if __name__ == '__main__':
 
-	_create_tabs_new()
 	#CSV path
 	path = '/Users/nicholasharrigan/pydata-book-master/ch02/names/'
 	#Import CSV file and put into pandas df
@@ -296,27 +249,16 @@ if __name__ == '__main__':
 	names_df = _csv_df(path)
 	#WARNING! Clear db
 	print 'Dropping tables...'
-	# _drop_tabs(session)
-
+	_drop_tabs(session)
+	#Create classes and mappings for new tables based on CSV entries
+	#TODO: Modify create_tables to work with pandas df instead of simple csv
+	#Get list of unique names and create tables in db with these names
+	print 'Generating names list'
 	names_list = names_df.name.unique()
-	#Insert rows
-	print 'Inserting rows'
-	_insert_all_rows(names_list, names_df, 0)
-
-
-
-
-
-
-	# #Create classes and mappings for new tables based on CSV entries
-	# #TODO: Modify create_tables to work with pandas df instead of simple csv
-	# #Get list of unique names and create tables in db with these names
-	# print 'Generating names list'
-	# names_list = names_df.name.unique()
-	# # names_list = ['Alan','Betty']
-	# print 'Creating tables...'
-	# _create_tables_core(names_list, names_df)
-	# # _create_tables(names_list, names_df)
-	# #Populate new tables and commit to db
-	# # print 'Populating tables...'
-	# # _populate_tables(tabs, names_df)
+	# names_list = ['Alan','Betty']
+	print 'Creating tables...'
+	_create_tables_core(names_list, names_df)
+	# _create_tables(names_list, names_df)
+	#Populate new tables and commit to db
+	# print 'Populating tables...'
+	# _populate_tables(tabs, names_df)
