@@ -19,10 +19,9 @@ import time
 #Connect to DB with SQLA
 engine = create_engine("postgresql://test_user:testpw@localhost/test", echo=False)
 Base = declarative_base(engine)
-# TODO: does each individual table need it's own metadata
-# metadata = MetaData(engine)
 Session = sessionmaker(bind=engine)
 session = Session()
+
 year_vals = np.arange(1880,2011)
 
 # def chunks(l, n):
@@ -71,8 +70,10 @@ def _drop_tabs(s):
 	s.commit()
 	#TODO: Add alternate that deletes each table individually if too many locks
 
-def _insert_all_rows(names_list, names_df, chunk_size):
+def _insert_all_rows(names_df, chunk_size):
 	"""Inserts rows into male and female tables for each name"""
+	#Get list of names (each form a record) for DB from pandas DF
+	names_list = names_df.name.unique()
 	#Groupby dataframe for easy access to each names time series
 	names_gb = names_df.groupby(names_df.name)
 	#Iterate over names and add rows and build query
@@ -126,15 +127,16 @@ for year in year_vals:
 	col_dic_f['col'+str(year)] = Column(str(year), Integer)
 Male = type('Male', (Base,), col_dic_m)
 Female = type('Female', (Base,), col_dic_f)
-#Create corresponding tables in database
-#TODO: Double check that this doesn't try and create new tables if already
-#finds __tablename__ in the DB
-Base.metadata.create_all(engine)
+# TODO: Could optimize by only creating m/f class when m/f requested
+
 
 if __name__ == '__main__':
 	#WARNING! Clear db
 	# print 'Dropping tables...'
 	# _drop_tabs(session)
+
+	#Create corresponding tables in database
+	Base.metadata.create_all(engine)
 
 	#Import CSV data in pandas DF
 	#CSV path
@@ -142,8 +144,6 @@ if __name__ == '__main__':
 	print 'Importing CSV...'
 	names_df = _csv_df(path)
 
-	#Get list of names (each form a record) for DB from pandas DF
-	names_list = names_df.name.unique()
 	#Insert rows
 	print 'Inserting rows'
-	_insert_all_rows(names_list, names_df, 0)
+	_insert_all_rows(names_df, 0)
