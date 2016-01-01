@@ -20,9 +20,10 @@ def index():
 def return_list():
 	return render_template('list.html')
 
-@app.route('/get_d3_data/<name>', methods=['GET', 'POST'])
-def get_d3_data(name):
+@app.route('/get_d3_data/<name>/<sex>', methods=['GET', 'POST'])
+def get_d3_data(name, sex):
 	print 'here'
+	print sex
 	# name = 'John'
 	print name
 	data_list = model.get_name_data(name, 'M', 'python_dict')

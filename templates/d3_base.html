@@ -1,27 +1,25 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-
 		<meta charset='utf-8'>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>Who makes the most babies?</title>
     <script type="text/javascript" src="{{ url_for('static', filename='d3/d3.js') }}"></script>
-    <style type='text/css'>
-	      div.bar {
-	        display: inline-block;
-	        width: 20px;
-	        height: 75px;
-	        background-color: teal;
-	        margin-right: 2px;
-	      }
-    </style>
+		<!-- Bootstrap imports -->
+		<link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+		<script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+		<link rel="stylesheet" type="text/css" class="ui" href="//oss.maxcdn.com/semantic-ui/2.1.7/components/component-name.min.css">
   </head>
 
   <body>
-    <center>
-			<h1 class='headline'>Name histories</h1>
-			<h4>Choose a name to see how common it is over time...</h4>
-      {% block body %}
-      {% endblock %}
-    </center>
+		<div class="container">
+	    <center>
+				<h1 class='headline'>Name histories</h1>
+				<h4>Choose a name to see how common it is over time...</h4>
+			</center>
+				{% block body %}
+	      {% endblock %}
+		</div>
   </body>
 </html>

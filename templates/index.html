@@ -1,12 +1,38 @@
 {% extends 'd3_base.html' %}
 {% block body %}
-<form name="name_form" onSubmit="return submitClick()">
-	<input type="text" id="name_val" placeholder="Choose a name...">
-	<button type="submit">Submit</button>
-</form>
+<div class="container">
+	<div class="row">
+		<div class="dropdown">
+			<form name="name_form" onSubmit="return submitClick()">
+				<input type="text" id="name_val" placeholder="Choose a name..."></input>
+				<button type="submit">Submit</button>
+			</form>
+		</div>
+	</div>
+</div>
+<div class="container">
+	<div class="row">
+		<div class="dropdown">
+		  <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Sex
+		  <span class="caret"></span></button>
+			<ul class="dropdown-menu">
+		    <li><a onclick="btnSexClick(this)">Male</a></li>
+		    <li><a onclick="btnSexClick(this)">Female</a></li>
+			</ul>
+		</div>
+	</div>
+</div>
 <br>
+
 <script type="text/javascript">
-		d3.json("{{ url_for('get_d3_data', name='Nicholas') }}", function(json) {
+	var btnSexClick = function(btn) {
+		var y = document.getElementsByClassName('btn btn-primary dropdown-toggle');
+		y[0].innerHTML = btn.text + ' <span class="caret"></span>';
+	}
+</script>
+
+<script type="text/javascript">
+		d3.json("{{ url_for('get_d3_data', name='Nicholas', sex='M') }}", function(json) {
 			// Extract data from json dict into a JS array of values
 			var dvals = Object.keys(json).map(function(k) { return json[k]});
 			// Setup plot with this data
@@ -102,10 +128,14 @@ var barpadding = 1;
 		var submitClick = function(event) {
 			// Get name entered in form
 			new_name = document.getElementById('name_val').value;
-			console.log(typeof(new_name));
+			sex = document.getElementsByClassName('btn btn-primary dropdown-toggle');
+			// console.log(sex[0].innerText);
+			sex = sex[0].innerText;
 			// Get new name data from database
 			// Note that can't use url_for parameters with js variables :(
-			url = "{{ url_for('get_d3_data', name=new_name) }}" + new_name;
+			// This is a hacky workaround (specify 'no name', but add on string)
+			console.log("{{ url_for('get_d3_data', name='', sex='') }}");
+			url = "/get_d3_data/" + new_name + "/" + sex;
 			console.log(url);
 			d3.json(url , function(json) {
 				// Extract data from json dict into a JS array of values
