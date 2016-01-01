@@ -1,0 +1,10 @@
+{% extends 'index.html' %}
+{% block body %}
+<p>Here is a list of numbers:</p>
+<a href="{{ url_for('index') }}">Choose another name</a>
+{% if data_list %}
+	{% for item in data_list %}
+			<li>{{ item }}</li>
+	{% endfor %}
+{% endif %}
+{% endblock %}

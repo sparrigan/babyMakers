@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+
+		<meta charset='utf-8'>
+		<title>Who makes the most babies?</title>
+    <script type="text/javascript" src="{{ url_for('static', filename='d3/d3.js') }}"></script>
+    <style type='text/css'>
+	      div.bar {
+	        display: inline-block;
+	        width: 20px;
+	        height: 75px;
+	        background-color: teal;
+	        margin-right: 2px;
+	      }
+    </style>
+  </head>
+
+  <body>
+    <center>
+			<h1 class='headline'>Name histories</h1>
+			<h4>Choose a name to see how common it is over time...</h4>
+      {% block body %}
+      {% endblock %}
+    </center>
+  </body>
+</html>

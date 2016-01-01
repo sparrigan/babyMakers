@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 from sqlalchemy import *
 import time
+import json
 
 # To start postgres server from terminal
 # postgres -D /usr/local/var/postgres
@@ -102,17 +103,44 @@ def _insert_all_rows(names_df, chunk_size):
 		# 	session.commit()
 		# 	i += 1
 
-def get_name_data(name, sex):
+def get_name_data(name, sex, ret_type = 'json'):
 	if sex in ['m', 'M', 'male', 'Male']:
 		qry = session.query(Male).filter_by(name=name)
 		if qry.first():
-			return qry.first().__dict__
+			#Get list from dict that is returned
+			q_dict = qry.first().__dict__
+			#Remove non-column entries that might be passed by SQLA
+			#And remove col prefix from others
+			for keyval in q_dict.keys():
+				if keyval[:3] != 'col':
+					q_dict.pop(keyval)
+				else:
+					q_dict[keyval[3:]] = q_dict.pop(keyval)
+			#Return required type
+			if ret_type=='python':
+				return [q_dict['col'+str(yr)] for yr in range(1880,2011)]
+			elif ret_type=='json':
+				return json.dumps(q_dict)
+			elif ret_type=='python_dict':
+				return q_dict
+			else:
+				return None
+
 		else:
 			return None
 	elif sex in ['f', 'F', 'female', 'Female']:
 		qry = session.query(Female).filter_by(name=name)
 		if qry.first():
-			return qry.first().__dict__
+			#Get list from dict that is returned
+			q_dict = qry.first().__dict__
+			if ret_type=='python':
+				return [q_dict['col'+str(yr)] for yr in range(1880,2011)]
+			elif ret_type=='json':
+				return json.dumps(q_dict)
+			elif ret_type=='python_dict':
+				return q_dict
+			else:
+				return None
 		else:
 			return None
 	#Code to get ordered list (by year) instead of dict

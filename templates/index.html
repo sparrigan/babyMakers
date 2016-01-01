@@ -1,4 +1,189 @@
-{% extends 'base.html' %}
+{% extends 'd3_base.html' %}
 {% block body %}
-<h4>"This page"</h4>
+<form name="name_form" onSubmit="return submitClick()">
+	<input type="text" id="name_val" placeholder="Choose a name...">
+	<button type="submit">Submit</button>
+</form>
+<br>
+<script type="text/javascript">
+		d3.json("{{ url_for('get_d3_data', name='Nicholas') }}", function(json) {
+			// Extract data from json dict into a JS array of values
+			var dvals = Object.keys(json).map(function(k) { return json[k]});
+			// Setup plot with this data
+			setup_plot(dvals);
+		});
+
+var svg;
+var yScale;
+var w = 1000;
+var h = 250;
+var barpadding = 1;
+
+		var setup_plot =  function(dataset) {
+// //var dataset = [5, 10, 15, 20, 25];
+// 	var max_val = 50;
+// 	var num_vals = 20;
+// 	var rand_data = function(num_vals,max_val) {
+// 		var data = [];
+// 		for (var i=0; i<num_vals; i++) {
+// 			data.push(Math.floor(Math.random()*max_val));
+// 		}
+// 		return data;
+// 	}
+// 	var dataset = rand_data(num_vals, max_val);
+
+			//Create scales
+			var xScale = d3.scale.ordinal()
+										 .domain(d3.range(dataset.length))
+										 .rangeRoundBands([0,w], 0.05);
+
+			yScale = d3.scale.linear()
+										 .domain([0, d3.max(dataset)])
+										 .range([h,0]);
+
+			svg = d3.select('body')
+									.append('svg')
+									.attr('width', w)
+									.attr('height', h);
+			// Create rects
+			var rects =
+				svg.selectAll('rect')
+					 .data(dataset)
+					 .enter()
+					 .append('rect')
+					 .attr( {
+						 'class': 'barRect',
+						 'x': function(d,i) {return xScale(i);},
+						 'y': function(d) {return yScale(d);},
+						 'width': xScale.rangeBand(),
+						 'height': function(d) {return h-yScale(d);},
+						 'fill': function(d) {
+							 return 'rgb(200,0,'
+							 +Math.floor((1-yScale(d)/h)*255)
+							 +')';}
+							})
+
+	// Create text labels
+			// var text =
+			// 	svg.selectAll('text')
+			// 		.data(dataset)
+			// 		.enter()
+			// 		.append('text')
+			// 		.text(function(d) {return Math.floor(d);})
+			// 		.attr({
+			// 			'class': 'barLabels',
+			// 			'x': function(d,i) {return xScale(i)+xScale.rangeBand()/2;}, //i*(w/dataset.length)+(w/dataset.length-barpadding)/2;},
+			// 			//Choose text y dependent on whether fits in bar
+			// 			'y': function(d,i) {
+			// 				var test_height = yScale(d)+20;
+			// 				if (test_height > h) {
+			// 					return yScale(d)-5;
+			// 				} else {
+			// 					return test_height;
+			// 				}
+			// 			},
+			// 			'font-family': 'sans-serif',
+			// 			'font-size': '11px',
+			// 			//Choose text fill colour dependent on whether is in bar
+			// 			'fill': function(d) {
+			// 				var test_height = yScale(d)+20;
+			// 				if (test_height > h) {
+			// 					return 'black';
+			// 				} else {
+			// 					return 'white'
+			// 				}
+			// 			},
+			// 			'text-anchor': 'middle'
+			// 		});
+
+		}
+
+		// Function launched when submit button clicked
+		var submitClick = function(event) {
+			// Get name entered in form
+			new_name = document.getElementById('name_val').value;
+			console.log(typeof(new_name));
+			// Get new name data from database
+			// Note that can't use url_for parameters with js variables :(
+			url = "{{ url_for('get_d3_data', name=new_name) }}" + new_name;
+			console.log(url);
+			d3.json(url , function(json) {
+				// Extract data from json dict into a JS array of values
+				var dvals = Object.keys(json).map(function(k) { return json[k]});
+				// Setup plot with this data
+				update_rects(dvals);
+			});
+			return false;
+		}
+
+		var update_rects = function(new_dataset) {
+
+			yScale = d3.scale.linear()
+										 .domain([0, d3.max(new_dataset)])
+										 .range([h,0]);
+
+			svg.selectAll('rect.barRect')
+				 .data(new_dataset)
+				 .transition()
+				 .delay(function(d,i) {return i/131 * 500;})
+				 .duration(950)
+				 .attr({
+					 'y': function(d) {return yScale(d);},
+					 'height': function(d) {return h-yScale(d);},
+					 'fill': function(d) {
+										return 'rgb(200,0,'+Math.floor((1-yScale(d)/h)*255) +')';
+										}
+						});
+		}
+
+		// // Event listener for clicks on <p> element
+		// d3.select('p.clickText')
+		// 	.on('click', function(){
+		// 		// Generate new random data
+		// 		new_dataset = rand_data(num_vals, max_val);
+		// 		//Update y scale
+		// 		yScale.domain([0,d3.max(new_dataset)])
+		// 		// Update rects
+		// 		svg.selectAll('rect.barRect')
+		// 			 .data(new_dataset)
+		// 			 .transition()
+		// 			 .delay(function(d,i) {return i/dataset.length * 500;})
+		// 			 .duration(950)
+		// 			 .attr({
+		// 				 'y': function(d) {return yScale(d);},
+		// 				 'height': function(d) {return h-yScale(d);},
+		// 				 'fill': function(d) {
+		// 									return 'rgb(200,0,'+Math.floor((1-yScale(d)/h)*255) +')';
+		// 									}
+		// 					});
+		// 		// Update text labels
+		// 		svg.selectAll('text')
+		// 			 .data(new_dataset)
+		// 			 .transition()
+		// 			 .delay(function(d,i) {return i/dataset.length * 500;})
+		// 			 .duration(1000)
+		// 			 .text(function(d) {return Math.floor(d);})
+		// 			 .attr({
+		// 				'x': function(d,i) {return xScale(i)+xScale.rangeBand()/2;},
+		// 				//Choose text y dependent on whether fits in bar
+		// 				'y': function(d) {
+		// 							var test_height = yScale(d)+20;
+		// 							if (test_height > h) {
+		// 								return yScale(d)-5;
+		// 							} else {
+		// 								return test_height;
+		// 							}
+		// 						},
+		// 				'fill': function(d) {
+		// 									var test_height = yScale(d)+20;
+		// 									if (test_height > h) {
+		// 										return 'black';
+		// 									} else {
+		// 										return 'white';
+		// 									}
+		// 								}
+		// 			 });
+		// 	})
+
+</script>
 {% endblock %}

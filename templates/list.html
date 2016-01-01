@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block body %}
+<form action="{{ url_for('get_data') }}" method="post">
+	<input type="text" name="name">
+	<button type="submit">Submit</button>
+</form>
+{% endblock %}
