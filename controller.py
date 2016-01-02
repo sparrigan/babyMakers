@@ -26,7 +26,7 @@ def get_d3_data(name, sex):
 	print sex
 	# name = 'John'
 	print name
-	data_list = model.get_name_data(name, 'M', 'python_dict')
+	data_list = model.get_name_data(name, sex, 'python_dict')
 	# TODO: Note that this does not return a second error parameter,
 	# which d3.json function expects normally (eg: see use of d3.json here:
 	# http://www.brettdangerfield.com/post/realtime_data_tag_cloud/)

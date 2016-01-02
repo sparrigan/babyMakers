@@ -1,35 +1,34 @@
 {% extends 'd3_base.html' %}
 {% block body %}
-<div class="container">
-	<div class="row">
-		<div class="dropdown">
-			<form name="name_form" onSubmit="return submitClick()">
-				<input type="text" id="name_val" placeholder="Choose a name..."></input>
-				<button type="submit">Submit</button>
-			</form>
-		</div>
+<br>
+<center>
+	<div class="ui right labeled input">
+	  <input type="text" id="name_val" placeholder="Name">
+	  <div class="ui dropdown label">
+	    <div class="text" id="sex_val">Female</div>
+	    <i class="dropdown icon"></i>
+	    <div class="menu">
+	      <div class="item">Male</div>
+	      <div class="item">Female</div>
+	    </div>
+	  </div>
 	</div>
-</div>
-<div class="container">
-	<div class="row">
-		<div class="dropdown">
-		  <button class="btn btn-primary dropdown-toggle" type="button" data-toggle="dropdown">Sex
-		  <span class="caret"></span></button>
-			<ul class="dropdown-menu">
-		    <li><a onclick="btnSexClick(this)">Male</a></li>
-		    <li><a onclick="btnSexClick(this)">Female</a></li>
-			</ul>
-		</div>
-	</div>
-</div>
+	<br>
+	<br>
+	<button class="ui button" onclick="submitClick()">
+	  Submit
+	</button>
+</center>
+<!-- Script for initialising semantic dropdown -->
+<script>
+$('.ui.dropdown')
+  .dropdown()
+;
+</script>
+
+
 <br>
 
-<script type="text/javascript">
-	var btnSexClick = function(btn) {
-		var y = document.getElementsByClassName('btn btn-primary dropdown-toggle');
-		y[0].innerHTML = btn.text + ' <span class="caret"></span>';
-	}
-</script>
 
 <script type="text/javascript">
 		d3.json("{{ url_for('get_d3_data', name='Nicholas', sex='M') }}", function(json) {
@@ -126,16 +125,21 @@ var barpadding = 1;
 
 		// Function launched when submit button clicked
 		var submitClick = function(event) {
+			console.log('HERE');
 			// Get name entered in form
 			new_name = document.getElementById('name_val').value;
-			sex = document.getElementsByClassName('btn btn-primary dropdown-toggle');
+			if (new_name) {
+				console.log('ASFASF');
+			}
+			new_sex = document.getElementById('sex_val').innerText;
+			console.log(new_sex);
+			// sex = document.getElementsByClassName('btn btn-primary dropdown-toggle');
 			// console.log(sex[0].innerText);
-			sex = sex[0].innerText;
+			// sex = sex[0].innerText;
 			// Get new name data from database
 			// Note that can't use url_for parameters with js variables :(
 			// This is a hacky workaround (specify 'no name', but add on string)
-			console.log("{{ url_for('get_d3_data', name='', sex='') }}");
-			url = "/get_d3_data/" + new_name + "/" + sex;
+			url = "/get_d3_data/" + new_name + "/" + new_sex;
 			console.log(url);
 			d3.json(url , function(json) {
 				// Extract data from json dict into a JS array of values
