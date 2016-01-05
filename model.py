@@ -117,9 +117,10 @@ def get_name_data(name, sex, ret_type = 'json'):
 					q_dict.pop(keyval)
 				else:
 					q_dict[keyval[3:]] = q_dict.pop(keyval)
+
 			#Return required type
 			if ret_type=='python':
-				return [q_dict['col'+str(yr)] for yr in range(1880,2011)]
+				return [q_dict[yr] for yr in range(1880,2011)]
 			elif ret_type=='json':
 				return json.dumps(q_dict)
 			elif ret_type=='python_dict':

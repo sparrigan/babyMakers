@@ -15,6 +15,7 @@
 	</div>
 	<br>
 	<br>
+
 	<button class="ui button" onclick="submitClick()">
 	  Submit
 	</button>
@@ -40,9 +41,23 @@ $('.ui.dropdown')
 
 var svg;
 var yScale;
-var w = 1000;
-var h = 250;
+var xScale;
+var w_total = 1000;
+var h_total = 250;
 var barpadding = 1;
+var padding = 20;
+// var yr_range = d3.range(1880,2011);
+
+var margin = {top: 20, right: 20, bottom: 20, left: 20};
+var w = w_total - margin.left - margin.right,
+		h = h_total - margin.top - margin.bottom;
+
+		svg = d3.select('body')
+								.append('svg')
+								.attr('width', w + margin.left + margin.right)
+								.attr('height', h + margin.top + margin.bottom)
+								.append('g')
+								.attr('transform', 'translate('+margin.left+','+margin.top+')');
 
 		var setup_plot =  function(dataset) {
 // //var dataset = [5, 10, 15, 20, 25];
@@ -57,19 +72,19 @@ var barpadding = 1;
 // 	}
 // 	var dataset = rand_data(num_vals, max_val);
 
-			//Create scales
-			var xScale = d3.scale.ordinal()
-										 .domain(d3.range(dataset.length))
-										 .rangeRoundBands([0,w], 0.05);
-
+			//Create scales - build range as years.
+			xScale = d3.scale.ordinal()
+										 .domain(d3.range(1880,2011))
+										 .rangeBands([0,w],0.05);
+			console.log('this');
+			console.log(xScale(2010));
+			console.log('that');
 			yScale = d3.scale.linear()
-										 .domain([0, d3.max(dataset)])
+										 .domain([d3.min(dataset), d3.max(dataset)])
 										 .range([h,0]);
 
-			svg = d3.select('body')
-									.append('svg')
-									.attr('width', w)
-									.attr('height', h);
+
+
 			// Create rects
 			var rects =
 				svg.selectAll('rect')
@@ -78,7 +93,8 @@ var barpadding = 1;
 					 .append('rect')
 					 .attr( {
 						 'class': 'barRect',
-						 'x': function(d,i) {return xScale(i);},
+						//  Note that we here rescale our index to proper year
+						 'x': function(d,i) {return xScale(i+1880);},
 						 'y': function(d) {return yScale(d);},
 						 'width': xScale.rangeBand(),
 						 'height': function(d) {return h-yScale(d);},
@@ -88,67 +104,159 @@ var barpadding = 1;
 							 +')';}
 							})
 
-	// Create text labels
-			// var text =
-			// 	svg.selectAll('text')
-			// 		.data(dataset)
-			// 		.enter()
-			// 		.append('text')
-			// 		.text(function(d) {return Math.floor(d);})
-			// 		.attr({
-			// 			'class': 'barLabels',
-			// 			'x': function(d,i) {return xScale(i)+xScale.rangeBand()/2;}, //i*(w/dataset.length)+(w/dataset.length-barpadding)/2;},
-			// 			//Choose text y dependent on whether fits in bar
-			// 			'y': function(d,i) {
-			// 				var test_height = yScale(d)+20;
-			// 				if (test_height > h) {
-			// 					return yScale(d)-5;
-			// 				} else {
-			// 					return test_height;
-			// 				}
-			// 			},
-			// 			'font-family': 'sans-serif',
-			// 			'font-size': '11px',
-			// 			//Choose text fill colour dependent on whether is in bar
-			// 			'fill': function(d) {
-			// 				var test_height = yScale(d)+20;
-			// 				if (test_height > h) {
-			// 					return 'black';
-			// 				} else {
-			// 					return 'white'
-			// 				}
-			// 			},
-			// 			'text-anchor': 'middle'
-			// 		});
+			var xAxis = d3.svg.axis()
+									.scale(xScale)
+									.orient('bottom')
+									.tickValues(d3.range(1880,2011,20));
+
+				svg.append('g')
+					 .attr('class', 'axis')
+					 .attr('transform', 'translate(0,'+h+')')
+					 .call(xAxis)
+
+			// NOTE: HOW TO DO THIS:
+			// Create a holder g element and then create curves symetrically (in x) around
+			// the center x,y coordinate of that g element using m and c
+			// paths =
+			// 	svg.selectAll('path')
+			// 	.data(dataset)
+			// 	.enter()
+			// 	.append('path')
+			// 	.attr({
+			// 		'd': "M50,100 c10,0 20,-10 20,-40 c20,-10 20,0 30,0",
+			// 		'stroke-width': 2,
+			// 		'stroke': "blue"
+			// 	});
 
 		}
 
 		// Function launched when submit button clicked
 		var submitClick = function(event) {
-			console.log('HERE');
 			// Get name entered in form
 			new_name = document.getElementById('name_val').value;
-			if (new_name) {
-				console.log('ASFASF');
-			}
 			new_sex = document.getElementById('sex_val').innerText;
-			console.log(new_sex);
-			// sex = document.getElementsByClassName('btn btn-primary dropdown-toggle');
-			// console.log(sex[0].innerText);
-			// sex = sex[0].innerText;
-			// Get new name data from database
-			// Note that can't use url_for parameters with js variables :(
-			// This is a hacky workaround (specify 'no name', but add on string)
 			url = "/get_d3_data/" + new_name + "/" + new_sex;
-			console.log(url);
+			// Update rects with name birth values
 			d3.json(url , function(json) {
 				// Extract data from json dict into a JS array of values
 				var dvals = Object.keys(json).map(function(k) { return json[k]});
 				// Setup plot with this data
 				update_rects(dvals);
 			});
+
+			// TODO: URL construct for movie posters:
+			// http://image.tmdb.org/t/p/w92/jojz3Yw5tEqtILcqbEsO0GLEIJm.jpg
+			// Find movies associated with actor/actress
+			// act_name = "Humphrey Bogart";
+			url_movies = "/get_movie_data";
+			d3.json(url_movies, function(json){
+				// Extract list of objects from json wrapper
+				movie_data = json.results
+				//Plot the movie_data
+				plot_movie_points(movie_data)
+				// ra = Object.keys(json).map(function(k) { return [k, json[k]]});
+			});
 			return false;
 		}
+
+		var plot_movie_points = function(movie_json) {
+			// Make group in which to store movies
+			movie_g = svg.append('g');
+			// Add rects for movies
+			console.log('Here...!')
+			var movie_rects = movie_g.selectAll('rect')
+							// Bind data - no need for key lookup
+						 .data(movie_json)
+						 .enter()
+						 .append('rect')
+						 .attr({
+							 'x': function(d) {return xScale(d.values[1])+xScale.rangeBand()/4;},
+							 'y': function(d) {return 100;},
+							 'width': xScale.rangeBand()/2,
+							 'height': function(d) {return (h-100);},
+							 'fill': 'black'
+				});
+			// TODO: Make this actually useful (rollover zoom etc...)
+			var movie_text = movie_g.selectAll('text')
+						.data(movie_json)
+						.enter()
+						.append('text')
+						.text(function(d) {return d.movie;})
+						.attr({
+							'x': function(d) {return xScale(d.values[1])+xScale.rangeBand()/4;},
+							'y': h-100
+						})
+						// Rotation of text: Crucial - give center of rotation too!
+						.attr('transform',function(d,i){
+							return 'rotate(-90,'+d3.select(this).attr("x")+','+d3.select(this).attr("y")+')';})
+
+							// Now that plotted data launch promises
+							movie_cull(movie_json);
+
+		};
+
+// Promise for getting whether a movie is good or not
+
+function get_promise(actor_id, movie_id) {
+	return new Promise(function(resolve, reject) {
+		//Build URL to check movie
+		url = "/cast_check/" + String(actor_id) + '/' + String(movie_id);
+		// url = "/cast_check/" + String(movie_id);
+		// Request JSON and pass results to resolve or reject accordingly
+		d3.json(url, function(error, result) {
+			// Check whether error and send to reject if so
+			if (error) {
+				reject(Error(error.statusText));
+			// If no error then send result to resolve
+			} else {
+				resolve(result);
+			}
+		})
+
+	});
+}
+
+// This is how we create and use a promise from above function
+// (pass two functions, one callback for success and one for failure)
+
+var promise_list = [];
+
+// TODO: NEED TO GET ACTOR_ID BACK FROM PREVIOUS API CALL
+// AND ITERATE BELOW OVER MOVIE_IDS THAT WERE RECEIVED
+
+for (i=0;i<5;i++) {
+	aa = get_promise(400).then(function(response){
+		console.log('Success!', response);
+	}, function(error) {
+		console.error('Failed :(', error);
+	});
+	promise_list.push(aa);
+
+}
+
+console.log("Done them all")
+
+
+Promise.all(promise_list).then(function(value) {
+	console.log('ALL DONE!!!!');
+	console.log(value);
+});
+
+
+// Note: see end of first answer here for usage where we can perform a function
+// when *all* promises fulfil (and presumably each promise can still perform it
+// own fulfillment functions?)
+// http://stackoverflow.com/questions/22539815/arent-promises-just-callbacks
+// Promise.all([api(), api2(), api3()]).then(function(result) {
+//     //do work. result is an array contains the values of the three fulfilled promises.
+// }).catch(function(error) {
+//     //handle the error. At least one of the promises rejected.
+// });
+
+		var movie_cull = function(movie_json) {
+			// Setup promises to find which movies can ignore
+		}
+
 
 		var update_rects = function(new_dataset) {
 
@@ -170,54 +278,6 @@ var barpadding = 1;
 						});
 		}
 
-		// // Event listener for clicks on <p> element
-		// d3.select('p.clickText')
-		// 	.on('click', function(){
-		// 		// Generate new random data
-		// 		new_dataset = rand_data(num_vals, max_val);
-		// 		//Update y scale
-		// 		yScale.domain([0,d3.max(new_dataset)])
-		// 		// Update rects
-		// 		svg.selectAll('rect.barRect')
-		// 			 .data(new_dataset)
-		// 			 .transition()
-		// 			 .delay(function(d,i) {return i/dataset.length * 500;})
-		// 			 .duration(950)
-		// 			 .attr({
-		// 				 'y': function(d) {return yScale(d);},
-		// 				 'height': function(d) {return h-yScale(d);},
-		// 				 'fill': function(d) {
-		// 									return 'rgb(200,0,'+Math.floor((1-yScale(d)/h)*255) +')';
-		// 									}
-		// 					});
-		// 		// Update text labels
-		// 		svg.selectAll('text')
-		// 			 .data(new_dataset)
-		// 			 .transition()
-		// 			 .delay(function(d,i) {return i/dataset.length * 500;})
-		// 			 .duration(1000)
-		// 			 .text(function(d) {return Math.floor(d);})
-		// 			 .attr({
-		// 				'x': function(d,i) {return xScale(i)+xScale.rangeBand()/2;},
-		// 				//Choose text y dependent on whether fits in bar
-		// 				'y': function(d) {
-		// 							var test_height = yScale(d)+20;
-		// 							if (test_height > h) {
-		// 								return yScale(d)-5;
-		// 							} else {
-		// 								return test_height;
-		// 							}
-		// 						},
-		// 				'fill': function(d) {
-		// 									var test_height = yScale(d)+20;
-		// 									if (test_height > h) {
-		// 										return 'black';
-		// 									} else {
-		// 										return 'white';
-		// 									}
-		// 								}
-		// 			 });
-		// 	})
 
 </script>
 {% endblock %}
