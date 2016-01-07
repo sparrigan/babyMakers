@@ -64,9 +64,6 @@ var setup_plot =  function(dataset) {
 	xScale = d3.scale.ordinal()
 								 .domain(d3.range(1880,2011))
 								 .rangeBands([0,w],0.05);
-	console.log('this');
-	console.log(xScale(2010));
-	console.log('that');
 	yScale = d3.scale.linear()
 								 .domain([d3.min(dataset), d3.max(dataset)])
 								 .range([h,0]);
@@ -139,7 +136,6 @@ function submitClick(event) {
 		// Extract list of objects from json wrapper
 		movie_data = json.results;
 		actor_id = json.actor_id;
-		mm = movie_data
 		//Plot the movie_data
 		plot_movie_points(movie_data, actor_id);
 		// ra = Object.keys(json).map(function(k) { return [k, json[k]]});
@@ -147,24 +143,28 @@ function submitClick(event) {
 	return false;
 }
 
-var mm
 
 function plot_movie_points(movie_json, actor_id) {
+
 	// Make group in which to store movies
 	movie_g = svg.append('g');
+
 	// Add rects for movies
 	var movie_rects = movie_g.selectAll('rect')
 					// Bind data - no need for key lookup
-				 .data(movie_json)
+				 .data(movie_json, function(d) {return d.values[0];})
 				 .enter()
 				 .append('rect')
 				 .attr({
+					 'class': 'mrect',
 					 'x': function(d) {return xScale(d.values[1])+xScale.rangeBand()/4;},
 					 'y': function(d) {return 100;},
 					 'width': xScale.rangeBand()/2,
 					 'height': function(d) {return (h-100);},
 					 'fill': 'black'
 		});
+
+
 	// TODO: Make this actually useful (rollover zoom etc...)
 	var movie_text = movie_g.selectAll('text')
 				.data(movie_json)
@@ -172,6 +172,7 @@ function plot_movie_points(movie_json, actor_id) {
 				.append('text')
 				.text(function(d) {return d.movie;})
 				.attr({
+					'class': 'mtext',
 					'x': function(d) {return xScale(d.values[1])+xScale.rangeBand()/4;},
 					'y': h-100
 				})
@@ -181,12 +182,14 @@ function plot_movie_points(movie_json, actor_id) {
 
 					// Now that plotted data launch promises
 					// test_movie_json = movie_json;
+
+
 					movie_cull(movie_json, actor_id);
 
 };
 
-// Promise for getting whether a movie is good or not
-function get_promise(actor_id, movie_id) {
+// Promise for getting whether star features in movie or not
+function cast_check_promise(actor_id, movie_id) {
 	return new Promise(function(resolve, reject) {
 		//Build URL to check movie
 		url = "/cast_check/" + String(actor_id) + '/' + String(movie_id);
@@ -210,6 +213,27 @@ function get_promise(actor_id, movie_id) {
 	});
 }
 
+// Promise for getting score of movie
+function score_check_promise(movie_id) {
+	return new Promise(function(resolve, reject) {
+		//Build URL to check movie
+		url = "/movie_score/" + String(movie_id);
+		// url = "/cast_check/" + String(movie_id);
+		// Request JSON and pass results to resolve or reject accordingly
+		d3.json(url, function(error, result) {
+			// Check whether error and send to reject if so
+			if (error) {
+				reject(Error(error.statusText));
+			} else {
+					// Send data to resolve function to evaluate whether to adjust and
+					// evaluate whether to keep movie or not
+					resolve(result);
+			}
+		})
+
+	});
+}
+
 
 
 // var test_movie_json
@@ -226,54 +250,106 @@ function get_promise(actor_id, movie_id) {
 // });
 
 function movie_cull(movie_json) {
-	console.log('actor_id is', actor_id);
 	// Setup promises to find which movies can ignore
-	var promise_list = [];
+	var cc_prom_list = [];
 
 	// TODO: NEED TO GET ACTOR_ID BACK FROM PREVIOUS API CALL
 	// AND ITERATE BELOW OVER MOVIE_IDS THAT WERE RECEIVED
-
+	starring_movs = []
 	for (mov in movie_json) {
 		// Get movie_id for current movie
 		movie_id = movie_json[mov].values[0];
 		// Create promise with controller for querying api for actor in movie
-		aa = get_promise(actor_id, movie_id).then(function(response){
+		cc_prom = cast_check_promise(actor_id, movie_id).then(function(response){
 			console.log('Success!', response);
-			remove_movie_bar(response.movie_id);
+			// Remove movie if fails test, otherwise add id to list
+			if (response.result == false) {
+				remove_movie_bar(response.movie_id);
+			} else {
+				starring_movs.push(response.movie_id)
+			}
 		}, function(error) {
 			console.log('Failed :(', error);
 		});
-		promise_list.push(aa);
+		cc_prom_list.push(cc_prom);
 
 	}
 
-	Promise.all(promise_list).then(function(value) {
+	Promise.all(cc_prom_list).then(function(value) {
 		// TODO: Here launch a re-check for all errors we had
-
 		console.log('ALL DONE!!!!');
-		console.log(value);
+		// Setup promises for evaluating scores of remaining movies
+		check_scores(starring_movs);
 	});
+	// });
 
 }
+
+
+// Setting up score check promises once movies culled by cast
+function check_scores(starring_movs) {
+	// Setup promise for each remaining movie
+	score_prom_list = []
+
+	for (mov_id in starring_movs) {
+		score_prom = score_check_promise(starring_movs[mov_id]).then(function(response){
+
+			//Call function that adjusts size of movie bars here
+			score_rect_adjust(response.movie_id);
+			console.log(response);
+		}, function(error) {
+			console.log('Failed :(', error);
+		});
+		score_prom_list.push(score_prom);
+	}
+
+	// Setup promise for all movies returning
+	Promise.all(score_prom_list).then(function(value) {
+		// TODO: Here launch a re-check for all errors we had
+		console.log('SCORES ALL DONE!!!!');
+
+		//CALCULATE TOP TEN WHEN HAVE ALL MOVIES HERE....
+
+	});
+}
+
+
+// Adjust movie rect according to scores as they're RECEIVED
+function score_rect_adjust(mov_id) {
+	// Turn rect green and adjust height
+	movie_g.selectAll('rect.mrect')
+				 .filter(function(d) {return d.values[0] == mov_id;})
+				 .transition()
+				 .duration(200)
+				 .attr({
+					 'fill': 'green'
+				 });
+}
+
+
+// movie_g.selectAll('rect.mrect').attr('height', function(d){return (h-d3.select(this).attr('y'));});
+
 // !!!!!!!
 // TODO: Need to make sure that we pass the proper form of dataset
 // When re-binding data to find exit values and remove
 
 // Removes a bar downwards when movie culled
 function remove_movie_bar(remove_val) {
-	movie_g.data(remove_val, key)
-				//  .exit()
+	movie_g.selectAll('rect.mrect')
+				 .filter(function(d) {return d.values[0] == remove_val;})
 				 .transition()
 				 .duration(500)
 				 .attr('y',1000)
 				 .remove();
+	// Remove associated text
+	movie_g.selectAll('text.mtext')
+				 .filter(function(d) {return d.values[0] == remove_val;})
+				 .transition()
+				 .duration(500)
+				 .attr('x',-1000)
+				 .remove();
 }
 
-// Returns key for a given datum
-function key(d) {
-	console.log(d);
-	return d.values[0];
-}
 
 
 function update_rects(new_dataset) {

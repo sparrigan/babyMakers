@@ -6,6 +6,7 @@ from urllib import quote
 import pandas
 import json
 import time
+import numpy as np
 
 from numpy import random
 import math
@@ -35,6 +36,28 @@ def get_movie_ids(json_vals):
 base_url = "http://api.themoviedb.org/3/"
 api_key = '&api_key=e5fae0ea529d524430820812b15b9521'
 
+def remove_repeats(movie_dict):
+	# Get list of ids in same order as list of movie dics
+	id_list = [x['values'][0] for x in movie_dict]
+
+	# Create dict of occurences of each number
+	y = np.bincount(id_list)
+	ii = np.nonzero(y)[0]
+	count_dic = dict(zip(ii,y[ii]))
+	del_idx = []
+	# Now loop through movie_dict entries, remove if more than one occurences
+	for idx, mov in enumerate(movie_dict):
+		if count_dic[mov['values'][0]] > 1:
+			# log entry for delete
+			del_idx.append(idx)
+			# Reduce counts for this entry
+			count_dic[mov['values'][0]] -= 1
+	# Now delete those entries from list in reverse
+	for index in sorted(del_idx, reverse=True):
+		del movie_dict[index]
+
+	return movie_dict
+
 # TODO: Upadate to return suggestions if not unique result for name
 def get_movieapi_results(full_name):
 	"""Takes full name string (not URL encoded) and returns dict of movies"""
@@ -54,6 +77,7 @@ def get_movieapi_results(full_name):
 	movie_dict = get_movie_ids(pg1)
 	#Now iterate over all remaining pages, adding movies to movie_dict dictionary
 	temp = []
+
 	for page in range(2,num_pages+1):
 		#Get current page
 		pagereq = '&page=%i' %page
@@ -62,7 +86,9 @@ def get_movieapi_results(full_name):
 		temp.append(current_pg)
 		#Combine dict of movies from this page with previously found ones
 		movie_dict += get_movie_ids(current_pg)
-	return movie_dict, actor_id
+
+	# Remove repeated entries by movie_id and return
+	return remove_repeats(movie_dict), actor_id
 
 # TODO: Way to refactor that reduces the number of movies we query for
 # more detailed information?
@@ -88,8 +114,7 @@ def get_cast_pos(actor_id, movie_id, cast_id_min):
 			error = 'ValueError loading json'
 			movie_cast = None
 
-		print 'MOVIE CAST IS...'
-		print movie_cast
+
 		if movie_cast:
 			if movie_cast['cast']:
 				castid = [act for act in movie_cast['cast'] if act['id']==actor_id][0]['order']
@@ -108,39 +133,34 @@ def get_cast_pos(actor_id, movie_id, cast_id_min):
 		return None, api_error
 
 # This has rest of logic for deciding on film
-def get_movie_rank(actor_id, movie_id):
+# TODO: Include error catching for these api calls too (put error catching into function)
+
+def get_movie_score(movie_id):
 	"""Checks whether movie passed satsifies criteria for being significant
 	in actors career
 	If actor in top n credits, returns revenue, average vote and popularity"""
-	# Only consider film if actor in top 2 cast order
-	# TODO: refactor to have this defined more globally
-	cast_id_min = 2
-	# Check position of actor in cast listing, giving cast_id
-	query = base_url + 'movie/' + str(movie_id) + '/credits?' + api_key
-	movie_cast = json.load(urllib2.urlopen(query))
+	# Get movie info from api call
+	print movie_id
 	query = base_url + 'movie/' + str(movie_id) +'?' + api_key
-	movie_json = json.load(urllib2.urlopen(query))
-	if movie_cast['cast']:
-		castid = [act for act in movie_cast['cast'] if act['id']==actor_id][0]['order']
-		# If no cast data then assume this movie isn't worth considering and force a False return
-	else:
-		castid = n+1
-	# Get poularity ranking from omdb:
-	if 'popularity' in movie_json:
-		pop = movie_json['popularity']
+	score_json = json.load(urllib2.urlopen(query))
+
+	# Get poularity ranking from themoviedb:
+	if 'popularity' in score_json:
+		pop = score_json['popularity']
 	else:
 		pop = 0
-	# Get average vote on omdb:
-	if 'vote_average' in movie_json:
-		vote = movie_json['vote_average']
+	# Get average vote the themoviedb:
+	if 'vote_average' in score_json:
+		vote = score_json['vote_average']
 	else:
 		vote = 0
-	# Only return value if actor/actress listed high in cast listing
-	if (castid < cast_id_min):
-		# Need a better way of generating a measure here
-		return movie_json['revenue'], pop, vote
+	# Get revenue from themoviedb
+	if 'revenue' in score_json:
+		rev = score_json['revenue']
 	else:
-		return None
+		rev = 0
+	# Return values
+	return {'revenue': rev, 'pop': pop, 'vote': vote}
 
 
 def top_n_movies(full_name, actor_id, n, score_func):
@@ -182,7 +202,7 @@ def get_d3_data(name, sex):
 
 @app.route('/get_movie_data/', methods=['GET', 'POST'])
 def get_movie_data():
-	movie_dict, actor_id = get_movieapi_results('Humphrey Bogart')
+	movie_dict, actor_id = get_movieapi_results("Humphrey Bogart")
 	json = {'results': movie_dict, 'actor_id': actor_id}
 	return jsonify(json)
 
@@ -203,13 +223,19 @@ def cast_check(actor_id, movie_id):
 	# make cast_pos calls async with grequest if can't get promises
 	# to work async with nginx etc...
 	# TODO: Deal with 429 errors by addding to list and retrying at end
-	print 'actor_id: %r' %int(actor_id)
-	print 'movie_id: %r' %movie_id
 	cast_pos, error = get_cast_pos(int(actor_id), int(movie_id), 2)
 	# Sleep to prevent 429 (TODO: Need a better solution for promises)
 	time.sleep(0.2)
 	json = {'result': cast_pos, 'error':error}
 	return jsonify(json)
+
+
+@app.route('/movie_score/<movie_id>', methods=['GET', 'POST'])
+def movie_score(movie_id):
+	outcome = get_movie_score(movie_id)
+	outcome['movie_id'] = int(movie_id)
+	time.sleep(0.2)
+	return jsonify(outcome)
 
 
 
