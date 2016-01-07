@@ -52,7 +52,6 @@ def get_movieapi_results(full_name):
 	pg1 = json.load(response2)
 	num_pages = pg1['total_pages']
 	movie_dict = get_movie_ids(pg1)
-	print movie_dict
 	#Now iterate over all remaining pages, adding movies to movie_dict dictionary
 	temp = []
 	for page in range(2,num_pages+1):
@@ -63,7 +62,7 @@ def get_movieapi_results(full_name):
 		temp.append(current_pg)
 		#Combine dict of movies from this page with previously found ones
 		movie_dict += get_movie_ids(current_pg)
-	return movie_dict
+	return movie_dict, actor_id
 
 # TODO: Way to refactor that reduces the number of movies we query for
 # more detailed information?
@@ -72,17 +71,41 @@ def get_movieapi_results(full_name):
 def get_cast_pos(actor_id, movie_id, cast_id_min):
 	"""Returns T/F for whether actor in top n of cast list"""
 	query = base_url + 'movie/' + str(movie_id) + '/credits?' + api_key
-	movie_cast = json.load(urllib2.urlopen(query))
-	if movie_cast['cast']:
-		castid = [act for act in movie_cast['cast'] if act['id']==actor_id][0]['order']
-		# If no cast data then assume this movie isn't worth considering and force a False return
+
+	try:
+		page = urllib2.urlopen(query)
+	except urllib2.HTTPError, err:
+		api_error = err.code
+		page = None
+	except urllib2.URLError, err:
+		api_error = err.reason
+		page = None
+
+	if page:
+		try:
+			movie_cast = json.load(page)
+		except ValueError:
+			error = 'ValueError loading json'
+			movie_cast = None
+
+		print 'MOVIE CAST IS...'
+		print movie_cast
+		if movie_cast:
+			if movie_cast['cast']:
+				castid = [act for act in movie_cast['cast'] if act['id']==actor_id][0]['order']
+				# If no cast data then assume this movie isn't worth considering and force a False return
+			else:
+				# If no cast information then assume this movie isn't worth considering
+				return False, None
+			if (castid < cast_id_min):
+				return True, None
+			else:
+				return False, None
+		else:
+			# Error decoding JSON, return None
+			return None, error
 	else:
-		# If no cast information then assume this movie isn't worth considering
-		return False
-	if (castid < cast_id_min):
-		return True
-	else:
-		return False
+		return None, api_error
 
 # This has rest of logic for deciding on film
 def get_movie_rank(actor_id, movie_id):
@@ -143,7 +166,6 @@ def top_n_movies(full_name, actor_id, n, score_func):
 # TODO: Create route for index page
 @app.route('/', methods=['GET'])
 def index():
-	print "running"
 	return render_template('index.html')
 
 @app.route('/return_list', methods=['GET'])
@@ -152,10 +174,6 @@ def return_list():
 
 @app.route('/get_d3_data/<name>/<sex>', methods=['GET', 'POST'])
 def get_d3_data(name, sex):
-	print 'here'
-	print sex
-	# name = 'John'
-	print name
 	data_list = model.get_name_data(name, sex, 'python_dict')
 	# TODO: Note that this does not return a second error parameter,
 	# which d3.json function expects normally (eg: see use of d3.json here:
@@ -164,8 +182,8 @@ def get_d3_data(name, sex):
 
 @app.route('/get_movie_data/', methods=['GET', 'POST'])
 def get_movie_data():
-	movie_dict = get_movieapi_results('Humphrey Bogart')
-	json = {'results': movie_dict}
+	movie_dict, actor_id = get_movieapi_results('Humphrey Bogart')
+	json = {'results': movie_dict, 'actor_id': actor_id}
 	return jsonify(json)
 
 # @app.route('/promise_test/<idstr>', methods=['GET', 'POST'])
@@ -184,9 +202,14 @@ def get_movie_data():
 def cast_check(actor_id, movie_id):
 	# make cast_pos calls async with grequest if can't get promises
 	# to work async with nginx etc...
-	cast_pos = get_cast_pos(actor_id, movie_id, 2)
-	json = {'result': cast_pos}
-	return jsoniy(json)
+	# TODO: Deal with 429 errors by addding to list and retrying at end
+	print 'actor_id: %r' %int(actor_id)
+	print 'movie_id: %r' %movie_id
+	cast_pos, error = get_cast_pos(int(actor_id), int(movie_id), 2)
+	# Sleep to prevent 429 (TODO: Need a better solution for promises)
+	time.sleep(0.2)
+	json = {'result': cast_pos, 'error':error}
+	return jsonify(json)
 
 
 
@@ -195,11 +218,9 @@ def cast_check(actor_id, movie_id):
 @app.route('/get_data', methods=["GET", "POST"])
 def get_data():
 	name = request.form['name']
-	print name
 	#Validate input
 	name = check_str(name)
 	data_list = model.get_name_data(name, 'F', 'python')
-	print data_list
 	return render_template('data_viz.html', data_list=data_list)
 
 

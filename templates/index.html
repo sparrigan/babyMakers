@@ -59,144 +59,133 @@ var w = w_total - margin.left - margin.right,
 								.append('g')
 								.attr('transform', 'translate('+margin.left+','+margin.top+')');
 
-		var setup_plot =  function(dataset) {
-// //var dataset = [5, 10, 15, 20, 25];
-// 	var max_val = 50;
-// 	var num_vals = 20;
-// 	var rand_data = function(num_vals,max_val) {
-// 		var data = [];
-// 		for (var i=0; i<num_vals; i++) {
-// 			data.push(Math.floor(Math.random()*max_val));
-// 		}
-// 		return data;
-// 	}
-// 	var dataset = rand_data(num_vals, max_val);
+var setup_plot =  function(dataset) {
+	//Create scales - build range as years.
+	xScale = d3.scale.ordinal()
+								 .domain(d3.range(1880,2011))
+								 .rangeBands([0,w],0.05);
+	console.log('this');
+	console.log(xScale(2010));
+	console.log('that');
+	yScale = d3.scale.linear()
+								 .domain([d3.min(dataset), d3.max(dataset)])
+								 .range([h,0]);
 
-			//Create scales - build range as years.
-			xScale = d3.scale.ordinal()
-										 .domain(d3.range(1880,2011))
-										 .rangeBands([0,w],0.05);
-			console.log('this');
-			console.log(xScale(2010));
-			console.log('that');
-			yScale = d3.scale.linear()
-										 .domain([d3.min(dataset), d3.max(dataset)])
-										 .range([h,0]);
+	// Create rects
+	var rects =
+		svg.selectAll('rect')
+			 .data(dataset)
+			 .enter()
+			 .append('rect')
+			 .attr( {
+				 'class': 'barRect',
+				//  Note that we here rescale our index to proper year
+				 'x': function(d,i) {return xScale(i+1880);},
+				 'y': function(d) {return yScale(d);},
+				 'width': xScale.rangeBand(),
+				 'height': function(d) {return h-yScale(d);},
+				 'fill': function(d) {
+					 return 'rgb(200,0,'
+					 +Math.floor((1-yScale(d)/h)*255)
+					 +')';}
+					})
 
+	var xAxis = d3.svg.axis()
+							.scale(xScale)
+							.orient('bottom')
+							.tickValues(d3.range(1880,2011,20));
 
+		svg.append('g')
+			 .attr('class', 'axis')
+			 .attr('transform', 'translate(0,'+h+')')
+			 .call(xAxis)
 
-			// Create rects
-			var rects =
-				svg.selectAll('rect')
-					 .data(dataset)
-					 .enter()
-					 .append('rect')
-					 .attr( {
-						 'class': 'barRect',
-						//  Note that we here rescale our index to proper year
-						 'x': function(d,i) {return xScale(i+1880);},
-						 'y': function(d) {return yScale(d);},
-						 'width': xScale.rangeBand(),
-						 'height': function(d) {return h-yScale(d);},
-						 'fill': function(d) {
-							 return 'rgb(200,0,'
-							 +Math.floor((1-yScale(d)/h)*255)
-							 +')';}
-							})
+	// NOTE: HOW TO DO THIS:
+	// Create a holder g element and then create curves symetrically (in x) around
+	// the center x,y coordinate of that g element using m and c
+	// paths =
+	// 	svg.selectAll('path')
+	// 	.data(dataset)
+	// 	.enter()
+	// 	.append('path')
+	// 	.attr({
+	// 		'd': "M50,100 c10,0 20,-10 20,-40 c20,-10 20,0 30,0",
+	// 		'stroke-width': 2,
+	// 		'stroke': "blue"
+	// 	});
 
-			var xAxis = d3.svg.axis()
-									.scale(xScale)
-									.orient('bottom')
-									.tickValues(d3.range(1880,2011,20));
+}
 
-				svg.append('g')
-					 .attr('class', 'axis')
-					 .attr('transform', 'translate(0,'+h+')')
-					 .call(xAxis)
+// Function launched when submit button clicked
+function submitClick(event) {
+	// Get name entered in form
+	new_name = document.getElementById('name_val').value;
+	new_sex = document.getElementById('sex_val').innerText;
+	url = "/get_d3_data/" + new_name + "/" + new_sex;
+	// Update rects with name birth values
+	d3.json(url , function(json) {
+		// Extract data from json dict into a JS array of values
+		var dvals = Object.keys(json).map(function(k) { return json[k]});
+		// Setup plot with this data
+		update_rects(dvals);
+	});
 
-			// NOTE: HOW TO DO THIS:
-			// Create a holder g element and then create curves symetrically (in x) around
-			// the center x,y coordinate of that g element using m and c
-			// paths =
-			// 	svg.selectAll('path')
-			// 	.data(dataset)
-			// 	.enter()
-			// 	.append('path')
-			// 	.attr({
-			// 		'd': "M50,100 c10,0 20,-10 20,-40 c20,-10 20,0 30,0",
-			// 		'stroke-width': 2,
-			// 		'stroke': "blue"
-			// 	});
+	// TODO: URL construct for movie posters:
+	// http://image.tmdb.org/t/p/w92/jojz3Yw5tEqtILcqbEsO0GLEIJm.jpg
+	// Find movies associated with actor/actress
+	// act_name = "Humphrey Bogart";
+	url_movies = "/get_movie_data";
+	d3.json(url_movies, function(json){
+		// Extract list of objects from json wrapper
+		movie_data = json.results;
+		actor_id = json.actor_id;
+		mm = movie_data
+		//Plot the movie_data
+		plot_movie_points(movie_data, actor_id);
+		// ra = Object.keys(json).map(function(k) { return [k, json[k]]});
+	});
+	return false;
+}
 
-		}
+var mm
 
-		// Function launched when submit button clicked
-		var submitClick = function(event) {
-			// Get name entered in form
-			new_name = document.getElementById('name_val').value;
-			new_sex = document.getElementById('sex_val').innerText;
-			url = "/get_d3_data/" + new_name + "/" + new_sex;
-			// Update rects with name birth values
-			d3.json(url , function(json) {
-				// Extract data from json dict into a JS array of values
-				var dvals = Object.keys(json).map(function(k) { return json[k]});
-				// Setup plot with this data
-				update_rects(dvals);
-			});
+function plot_movie_points(movie_json, actor_id) {
+	// Make group in which to store movies
+	movie_g = svg.append('g');
+	// Add rects for movies
+	var movie_rects = movie_g.selectAll('rect')
+					// Bind data - no need for key lookup
+				 .data(movie_json)
+				 .enter()
+				 .append('rect')
+				 .attr({
+					 'x': function(d) {return xScale(d.values[1])+xScale.rangeBand()/4;},
+					 'y': function(d) {return 100;},
+					 'width': xScale.rangeBand()/2,
+					 'height': function(d) {return (h-100);},
+					 'fill': 'black'
+		});
+	// TODO: Make this actually useful (rollover zoom etc...)
+	var movie_text = movie_g.selectAll('text')
+				.data(movie_json)
+				.enter()
+				.append('text')
+				.text(function(d) {return d.movie;})
+				.attr({
+					'x': function(d) {return xScale(d.values[1])+xScale.rangeBand()/4;},
+					'y': h-100
+				})
+				// Rotation of text: Crucial - give center of rotation too!
+				.attr('transform',function(d,i){
+					return 'rotate(-90,'+d3.select(this).attr("x")+','+d3.select(this).attr("y")+')';})
 
-			// TODO: URL construct for movie posters:
-			// http://image.tmdb.org/t/p/w92/jojz3Yw5tEqtILcqbEsO0GLEIJm.jpg
-			// Find movies associated with actor/actress
-			// act_name = "Humphrey Bogart";
-			url_movies = "/get_movie_data";
-			d3.json(url_movies, function(json){
-				// Extract list of objects from json wrapper
-				movie_data = json.results
-				//Plot the movie_data
-				plot_movie_points(movie_data)
-				// ra = Object.keys(json).map(function(k) { return [k, json[k]]});
-			});
-			return false;
-		}
+					// Now that plotted data launch promises
+					// test_movie_json = movie_json;
+					movie_cull(movie_json, actor_id);
 
-		var plot_movie_points = function(movie_json) {
-			// Make group in which to store movies
-			movie_g = svg.append('g');
-			// Add rects for movies
-			console.log('Here...!')
-			var movie_rects = movie_g.selectAll('rect')
-							// Bind data - no need for key lookup
-						 .data(movie_json)
-						 .enter()
-						 .append('rect')
-						 .attr({
-							 'x': function(d) {return xScale(d.values[1])+xScale.rangeBand()/4;},
-							 'y': function(d) {return 100;},
-							 'width': xScale.rangeBand()/2,
-							 'height': function(d) {return (h-100);},
-							 'fill': 'black'
-				});
-			// TODO: Make this actually useful (rollover zoom etc...)
-			var movie_text = movie_g.selectAll('text')
-						.data(movie_json)
-						.enter()
-						.append('text')
-						.text(function(d) {return d.movie;})
-						.attr({
-							'x': function(d) {return xScale(d.values[1])+xScale.rangeBand()/4;},
-							'y': h-100
-						})
-						// Rotation of text: Crucial - give center of rotation too!
-						.attr('transform',function(d,i){
-							return 'rotate(-90,'+d3.select(this).attr("x")+','+d3.select(this).attr("y")+')';})
-
-							// Now that plotted data launch promises
-							movie_cull(movie_json);
-
-		};
+};
 
 // Promise for getting whether a movie is good or not
-
 function get_promise(actor_id, movie_id) {
 	return new Promise(function(resolve, reject) {
 		//Build URL to check movie
@@ -207,40 +196,23 @@ function get_promise(actor_id, movie_id) {
 			// Check whether error and send to reject if so
 			if (error) {
 				reject(Error(error.statusText));
-			// If no error then send result to resolve
+			// Also security check in case no bool value (although should get error)
+			} else if (result.result == null) {
+				reject(result.error)
+			// If no error then send result to resolve function
 			} else {
-				resolve(result);
+					// Add movie_id to object that we return
+					result['movie_id'] = movie_id
+					resolve(result);
 			}
 		})
 
 	});
 }
 
-// This is how we create and use a promise from above function
-// (pass two functions, one callback for success and one for failure)
-
-var promise_list = [];
-
-// TODO: NEED TO GET ACTOR_ID BACK FROM PREVIOUS API CALL
-// AND ITERATE BELOW OVER MOVIE_IDS THAT WERE RECEIVED
-
-for (i=0;i<5;i++) {
-	aa = get_promise(400).then(function(response){
-		console.log('Success!', response);
-	}, function(error) {
-		console.error('Failed :(', error);
-	});
-	promise_list.push(aa);
-
-}
-
-console.log("Done them all")
 
 
-Promise.all(promise_list).then(function(value) {
-	console.log('ALL DONE!!!!');
-	console.log(value);
-});
+// var test_movie_json
 
 
 // Note: see end of first answer here for usage where we can perform a function
@@ -253,30 +225,76 @@ Promise.all(promise_list).then(function(value) {
 //     //handle the error. At least one of the promises rejected.
 // });
 
-		var movie_cull = function(movie_json) {
-			// Setup promises to find which movies can ignore
-		}
+function movie_cull(movie_json) {
+	console.log('actor_id is', actor_id);
+	// Setup promises to find which movies can ignore
+	var promise_list = [];
 
+	// TODO: NEED TO GET ACTOR_ID BACK FROM PREVIOUS API CALL
+	// AND ITERATE BELOW OVER MOVIE_IDS THAT WERE RECEIVED
 
-		var update_rects = function(new_dataset) {
+	for (mov in movie_json) {
+		// Get movie_id for current movie
+		movie_id = movie_json[mov].values[0];
+		// Create promise with controller for querying api for actor in movie
+		aa = get_promise(actor_id, movie_id).then(function(response){
+			console.log('Success!', response);
+			remove_movie_bar(response.movie_id);
+		}, function(error) {
+			console.log('Failed :(', error);
+		});
+		promise_list.push(aa);
 
-			yScale = d3.scale.linear()
-										 .domain([0, d3.max(new_dataset)])
-										 .range([h,0]);
+	}
 
-			svg.selectAll('rect.barRect')
-				 .data(new_dataset)
+	Promise.all(promise_list).then(function(value) {
+		// TODO: Here launch a re-check for all errors we had
+
+		console.log('ALL DONE!!!!');
+		console.log(value);
+	});
+
+}
+// !!!!!!!
+// TODO: Need to make sure that we pass the proper form of dataset
+// When re-binding data to find exit values and remove
+
+// Removes a bar downwards when movie culled
+function remove_movie_bar(remove_val) {
+	movie_g.data(remove_val, key)
+				//  .exit()
 				 .transition()
-				 .delay(function(d,i) {return i/131 * 500;})
-				 .duration(950)
-				 .attr({
-					 'y': function(d) {return yScale(d);},
-					 'height': function(d) {return h-yScale(d);},
-					 'fill': function(d) {
-										return 'rgb(200,0,'+Math.floor((1-yScale(d)/h)*255) +')';
-										}
-						});
-		}
+				 .duration(500)
+				 .attr('y',1000)
+				 .remove();
+}
+
+// Returns key for a given datum
+function key(d) {
+	console.log(d);
+	return d.values[0];
+}
+
+
+function update_rects(new_dataset) {
+
+	yScale = d3.scale.linear()
+								 .domain([0, d3.max(new_dataset)])
+								 .range([h,0]);
+
+	svg.selectAll('rect.barRect')
+		 .data(new_dataset)
+		 .transition()
+		 .delay(function(d,i) {return i/131 * 500;})
+		 .duration(950)
+		 .attr({
+			 'y': function(d) {return yScale(d);},
+			 'height': function(d) {return h-yScale(d);},
+			 'fill': function(d) {
+								return 'rgb(200,0,'+Math.floor((1-yScale(d)/h)*255) +')';
+								}
+				});
+}
 
 
 </script>
