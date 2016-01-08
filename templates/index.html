@@ -32,33 +32,41 @@ $('.ui.dropdown')
 
 
 <script type="text/javascript">
-		d3.json("{{ url_for('get_d3_data', name='Nicholas', sex='M') }}", function(json) {
-			// Extract data from json dict into a JS array of values
-			var dvals = Object.keys(json).map(function(k) { return json[k]});
-			// Setup plot with this data
-			setup_plot(dvals);
-		});
 
+//Global vars
 var svg;
+var movie_g;
 var yScale;
 var xScale;
 var w_total = 1000;
 var h_total = 250;
 var barpadding = 1;
 var padding = 20;
-// var yr_range = d3.range(1880,2011);
-
 var margin = {top: 20, right: 20, bottom: 20, left: 20};
 var w = w_total - margin.left - margin.right,
 		h = h_total - margin.top - margin.bottom;
+// Resolved promise to chain off for queueing movie rect updates
+var update_rect_sequence = Promise.resolve();
 
-		svg = d3.select('body')
-								.append('svg')
-								.attr('width', w + margin.left + margin.right)
-								.attr('height', h + margin.top + margin.bottom)
-								.append('g')
-								.attr('transform', 'translate('+margin.left+','+margin.top+')');
 
+//SVG container
+svg = d3.select('body')
+						.append('svg')
+						.attr('width', w + margin.left + margin.right)
+						.attr('height', h + margin.top + margin.bottom)
+						.append('g')
+						.attr('transform', 'translate('+margin.left+','+margin.top+')');
+
+// Initial plot before choice
+//TODO: Replace this with animation or existing actor values
+d3.json("{{ url_for('get_d3_data', name='Nicholas', sex='M') }}", function(json) {
+	// Extract data from json dict into a JS array of values
+	var dvals = Object.keys(json).map(function(k) { return json[k]});
+	// Setup plot with this data
+	setup_plot(dvals);
+});
+
+// Plots name values
 var setup_plot =  function(dataset) {
 	//Create scales - build range as years.
 	xScale = d3.scale.ordinal()
@@ -67,7 +75,6 @@ var setup_plot =  function(dataset) {
 	yScale = d3.scale.linear()
 								 .domain([d3.min(dataset), d3.max(dataset)])
 								 .range([h,0]);
-
 	// Create rects
 	var rects =
 		svg.selectAll('rect')
@@ -86,18 +93,17 @@ var setup_plot =  function(dataset) {
 					 +Math.floor((1-yScale(d)/h)*255)
 					 +')';}
 					})
-
+	// x Axis
 	var xAxis = d3.svg.axis()
 							.scale(xScale)
 							.orient('bottom')
 							.tickValues(d3.range(1880,2011,20));
+	svg.append('g')
+		 .attr('class', 'axis')
+		 .attr('transform', 'translate(0,'+h+')')
+		 .call(xAxis)
 
-		svg.append('g')
-			 .attr('class', 'axis')
-			 .attr('transform', 'translate(0,'+h+')')
-			 .call(xAxis)
-
-	// NOTE: HOW TO DO THIS:
+	// NOTE: HOW TO PLOT MOVIE RECTS AS ARBITRARY SHAPES:
 	// Create a holder g element and then create curves symetrically (in x) around
 	// the center x,y coordinate of that g element using m and c
 	// paths =
@@ -126,11 +132,13 @@ function submitClick(event) {
 		// Setup plot with this data
 		update_rects(dvals);
 	});
-
 	// TODO: URL construct for movie posters:
 	// http://image.tmdb.org/t/p/w92/jojz3Yw5tEqtILcqbEsO0GLEIJm.jpg
 	// Find movies associated with actor/actress
 	// act_name = "Humphrey Bogart";
+	// Get movie data (currently defaults to server-set name)
+	// TODO: Have use user-entered name
+	// TODO: Have suggest possibilities on multiple returns
 	url_movies = "/get_movie_data";
 	d3.json(url_movies, function(json){
 		// Extract list of objects from json wrapper
@@ -143,15 +151,12 @@ function submitClick(event) {
 	return false;
 }
 
-
+// Plot points for movies returned from server
 function plot_movie_points(movie_json, actor_id) {
-
 	// Make group in which to store movies
 	movie_g = svg.append('g');
-
-	// Add rects for movies
+	// Add rects for movie data
 	var movie_rects = movie_g.selectAll('rect')
-					// Bind data - no need for key lookup
 				 .data(movie_json, function(d) {return d.values[0];})
 				 .enter()
 				 .append('rect')
@@ -162,9 +167,8 @@ function plot_movie_points(movie_json, actor_id) {
 					 'width': xScale.rangeBand()/2,
 					 'height': function(d) {return (h-100);},
 					 'fill': 'black'
-		});
-
-
+				 });
+	// Add text for each movie
 	// TODO: Make this actually useful (rollover zoom etc...)
 	var movie_text = movie_g.selectAll('text')
 				.data(movie_json)
@@ -180,20 +184,16 @@ function plot_movie_points(movie_json, actor_id) {
 				.attr('transform',function(d,i){
 					return 'rotate(-90,'+d3.select(this).attr("x")+','+d3.select(this).attr("y")+')';})
 
-					// Now that plotted data launch promises
-					// test_movie_json = movie_json;
-
-
-					movie_cull(movie_json, actor_id);
+		// Begin requesting info from server to cull unimportant movies
+		movie_cull(movie_json, actor_id);
 
 };
 
-// Promise for getting whether star features in movie or not
+// Return promise for checking whether star features in movie or not
 function cast_check_promise(actor_id, movie_id) {
 	return new Promise(function(resolve, reject) {
 		//Build URL to check movie
 		url = "/cast_check/" + String(actor_id) + '/' + String(movie_id);
-		// url = "/cast_check/" + String(movie_id);
 		// Request JSON and pass results to resolve or reject accordingly
 		d3.json(url, function(error, result) {
 			// Check whether error and send to reject if so
@@ -202,64 +202,63 @@ function cast_check_promise(actor_id, movie_id) {
 			// Also security check in case no bool value (although should get error)
 			} else if (result.result == null) {
 				reject(result.error)
-			// If no error then send result to resolve function
+			// If no errors then send result to resolve function
 			} else {
 					// Add movie_id to object that we return
 					result['movie_id'] = movie_id
 					resolve(result);
 			}
-		})
-
+		});
 	});
 }
 
-// Promise for getting score of movie
+// Return promise for getting score of movie
 function score_check_promise(movie_id) {
 	return new Promise(function(resolve, reject) {
 		//Build URL to check movie
 		url = "/movie_score/" + String(movie_id);
-		// url = "/cast_check/" + String(movie_id);
 		// Request JSON and pass results to resolve or reject accordingly
 		d3.json(url, function(error, result) {
 			// Check whether error and send to reject if so
 			if (error) {
 				reject(Error(error.statusText));
 			} else {
-					// Send data to resolve function to evaluate whether to adjust and
-					// evaluate whether to keep movie or not
-					resolve(result);
+				console.log('RETURNING MOVIE SCORE, ', movie_id);
+					// Pass back result and movie_id
+					resolve([result, movie_id]);
 			}
-		})
-
+		});
 	});
 }
 
+// Return promise for plotting rects - executed at end of queue
+function score_rect_promise(response) {
+	return new Promise(function(resolve, reject) {
+		score_data = response[0];
+		movie_id = response[1];
+		console.log('RESPONSE IS ', response);
+		// Here is where we call stuff for each movie update
+		//Call function that calculates score given features from api
+		score = calc_score(score_data);
+		//Call function that adjusts size of movie bars here
+		console.log('CALLING score_rect_adjust')
+		score_rect_adjust(movie_id, score);
+		// Don't forget that we need to resolve the promise in order to move on
+		// the chain!
+		resolve()
+	});
+}
 
-
-// var test_movie_json
-
-
-// Note: see end of first answer here for usage where we can perform a function
-// when *all* promises fulfil (and presumably each promise can still perform it
-// own fulfillment functions?)
-// http://stackoverflow.com/questions/22539815/arent-promises-just-callbacks
-// Promise.all([api(), api2(), api3()]).then(function(result) {
-//     //do work. result is an array contains the values of the three fulfilled promises.
-// }).catch(function(error) {
-//     //handle the error. At least one of the promises rejected.
-// });
-
+// Setup and act on promises for removing films based on cast-list
 function movie_cull(movie_json) {
 	// Setup promises to find which movies can ignore
 	var cc_prom_list = [];
-
-	// TODO: NEED TO GET ACTOR_ID BACK FROM PREVIOUS API CALL
-	// AND ITERATE BELOW OVER MOVIE_IDS THAT WERE RECEIVED
+	// List to store movies that do feature actor
 	starring_movs = []
 	for (mov in movie_json) {
 		// Get movie_id for current movie
 		movie_id = movie_json[mov].values[0];
-		// Create promise with controller for querying api for actor in movie
+		// Create promise for querying api via server for actor in movie
 		cc_prom = cast_check_promise(actor_id, movie_id).then(function(response){
 			console.log('Success!', response);
 			// Remove movie if fails test, otherwise add id to list
@@ -271,51 +270,85 @@ function movie_cull(movie_json) {
 		}, function(error) {
 			console.log('Failed :(', error);
 		});
+		// Add promise to array (so can use Promise.all to act when all complete)
 		cc_prom_list.push(cc_prom);
-
 	}
-
+	// When all cast queries return then begin checking their scores.
 	Promise.all(cc_prom_list).then(function(value) {
 		// TODO: Here launch a re-check for all errors we had
 		console.log('ALL DONE!!!!');
 		// Setup promises for evaluating scores of remaining movies
 		check_scores(starring_movs);
 	});
-	// });
-
 }
 
 
-// Setting up score check promises once movies culled by cast
+// Setup and act on promises for removing films based on movie scores
 function check_scores(starring_movs) {
-	// Setup promise for each remaining movie
-	score_prom_list = []
-
+	// List to store promises for each remaining movie
+	var score_prom_list = []
+	// Create promises that query api for score of each remaining movie
 	for (mov_id in starring_movs) {
+		// Create promise for this movie_id
 		score_prom = score_check_promise(starring_movs[mov_id]).then(function(response){
-
-			//Call function that adjusts size of movie bars here
-			score_rect_adjust(response.movie_id);
-			console.log(response);
+			// On completion (data received) add a new promise to chain to alter d3
+			update_rect_sequence = update_rect_sequence.then(function() {
+				// Chain new promise to queue, passing json results and movie_id
+				return score_rect_promise(response);
+			}).then(function(response) {
+				// Anything after each promise fulfilled from queue to go here
+				console.log('Just of top of queue is: ', response);
+			})
+		// Error from promise for getting score from api
 		}, function(error) {
 			console.log('Failed :(', error);
 		});
+		// Add initial (pre-queue) api promises to list for Promise.all
 		score_prom_list.push(score_prom);
-	}
-
-	// Setup promise for all movies returning
+		}
+	// Find when all promises have been added to update_rect_sequence queue
 	Promise.all(score_prom_list).then(function(value) {
-		// TODO: Here launch a re-check for all errors we had
-		console.log('SCORES ALL DONE!!!!');
-
-		//CALCULATE TOP TEN WHEN HAVE ALL MOVIES HERE....
-
+		// When all in queue, add final then to queue that triggers next part of viz
+		update_rect_sequence.then(function() {
+			console.log('SCORES ALL DONE!!!!');
+			// TODO: CALCULATE TOP TEN WHEN HAVE ALL MOVIES HERE....
+			//Using filter, sort or order?
+		});
 	});
 }
 
+var pop_lim = [999,0];
+var vote_lim = [999,0];
+
+function calc_score(response) {
+	// Extract features into array
+	vals = [response.pop, response.vote];
+	// Check whether need to update max/min values
+	// TODO: THIS IS HORRIBLE! VECTORIZE!
+	pop_lim[0] = d3.min([pop_lim[0], vals[0]]);
+	pop_lim[1] = d3.max([pop_lim[1], vals[0]]);
+	vote_lim[0] = d3.min([vote_lim[0], vals[1]]);
+	vote_lim[1] = d3.max([vote_lim[1], vals[1]]);
+
+	// Re-scale pop and vote features based on current dataset
+	s
+
+	// Normalize value of vote and poularity
+	console.log('WHAT WE GET IN CALC_SCORE: ', response);
+	return 0;
+};
+
+// TODO: NEED TO NORMALIZE BOTH THE FEATURES AND THEN ALSO THE TOTAL VALUE TO PLOT
+
+// var mrect_scale = d3.scale.linear()
+// 							 .domain([0, d3.max(new_dataset)])
+// 							 .range([h,0]);
+var max_rect = 0;
+var min_rect = 0;
 
 // Adjust movie rect according to scores as they're RECEIVED
-function score_rect_adjust(mov_id) {
+function score_rect_adjust(mov_id, score) {
+
 	// Turn rect green and adjust height
 	movie_g.selectAll('rect.mrect')
 				 .filter(function(d) {return d.values[0] == mov_id;})
@@ -324,16 +357,14 @@ function score_rect_adjust(mov_id) {
 				 .attr({
 					 'fill': 'green'
 				 });
+
 }
 
 
 // movie_g.selectAll('rect.mrect').attr('height', function(d){return (h-d3.select(this).attr('y'));});
 
-// !!!!!!!
-// TODO: Need to make sure that we pass the proper form of dataset
-// When re-binding data to find exit values and remove
 
-// Removes a bar downwards when movie culled
+// Removes a bar and text downwards when movie culled
 function remove_movie_bar(remove_val) {
 	movie_g.selectAll('rect.mrect')
 				 .filter(function(d) {return d.values[0] == remove_val;})
@@ -350,14 +381,13 @@ function remove_movie_bar(remove_val) {
 				 .remove();
 }
 
-
-
+// Update rects for name history when new data to be bound
 function update_rects(new_dataset) {
-
+	// Update yscale
 	yScale = d3.scale.linear()
 								 .domain([0, d3.max(new_dataset)])
 								 .range([h,0]);
-
+	//Update rects
 	svg.selectAll('rect.barRect')
 		 .data(new_dataset)
 		 .transition()
@@ -369,9 +399,9 @@ function update_rects(new_dataset) {
 			 'fill': function(d) {
 								return 'rgb(200,0,'+Math.floor((1-yScale(d)/h)*255) +')';
 								}
-				});
+			});
 }
 
-
 </script>
+
 {% endblock %}

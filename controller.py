@@ -188,6 +188,10 @@ def top_n_movies(full_name, actor_id, n, score_func):
 def index():
 	return render_template('index.html')
 
+@app.route('/test', methods=['GET'])
+def test():
+	return render_template('test.html')
+
 @app.route('/return_list', methods=['GET'])
 def return_list():
 	return render_template('list.html')
