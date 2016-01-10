@@ -319,6 +319,10 @@ function check_scores(starring_movs) {
 
 var pop_lim = [999,0];
 var vote_lim = [999,0];
+popScale = d3.scale.linear()
+							 .range([0,100]);
+voteScale = d3.scale.linear()
+							 .range([0,100]);
 
 function calc_score(response) {
 	// Extract features into array
@@ -331,7 +335,11 @@ function calc_score(response) {
 	vote_lim[1] = d3.max([vote_lim[1], vals[1]]);
 
 	// Re-scale pop and vote features based on current dataset
-	s
+	popScale.domain([pop_lim[0], pop_lim[1]]);
+	voteScale.domain([vote_lim[0], vote_lim[1]]);
+
+// Now apply scale to all rects we have scores for, and put others at min value
+
 
 	// Normalize value of vote and poularity
 	console.log('WHAT WE GET IN CALC_SCORE: ', response);
