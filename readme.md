@@ -71,8 +71,15 @@ Where you will need to replace the 'your...' string values with your respective 
 
 ## Register config file as environment variables
 
-To run locally, you will then need to source the environment variables that you have in your babyMakers.cfg file. You can do this from a terminal prompt by typing: `source babyMakers.cfg` from within the root project directory.
+To run locally, you will then need to source the environment variables that you have in your babyMakers.cfg file. You can do this from a terminal prompt by typing:
 
+```
+set -a
+source babyMakers.cfg
+set +a
+```
+
+From within the root directory of your project folder.
 
 
 <!-- source babyMakers.cfg
