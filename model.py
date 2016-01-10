@@ -177,8 +177,8 @@ if __name__ == '__main__':
 	Base.metadata.create_all(engine)
 
 	#Import CSV data in pandas DF
-	#CSV path
-	path = '/Users/nicholasharrigan/pydata-book-master/ch02/names/'
+	#Get CSV path from environment variable
+	path = os.environ['CSV_PATH']
 	print 'Importing CSV...'
 	names_df = _csv_df(path)
 

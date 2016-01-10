@@ -60,11 +60,11 @@ Create a file called babyMakers.cfg in root project directory: `touch babyMakers
 In this file, write the following variable definitions:
 
 ```
-export PG_USERNAME='your_postgres_username'
-export PG_PASSWORD='your_postgres_password'
-export DATABASE='localhost/babyMakers'
-export DEBUG=True
-export API_KEY = 'your_api_key'
+PG_USERNAME='your_postgres_username'
+PG_PASSWORD='your_postgres_password'
+DATABASE='localhost/babyMakers'
+DEBUG=True
+API_KEY = 'your_api_key'
 ```
 
 Where you will need to replace the 'your...' string values with your respective data.
@@ -79,7 +79,13 @@ source babyMakers.cfg
 set +a
 ```
 
-From within the root directory of your project folder.
+...from within the root directory of your project folder.
+
+# Populating the database
+
+You need to acquire a set of csv files of babynames in order to populate the database (https://ssa.gov/oact/babynames/limits.html). babyMakers looks for this csv file in the root project directory by default, but you can change the path to the file in the CSV_PATH field of babyMakers.cfg.
+
+Assuming you have the csv files, now
 
 
 <!-- source babyMakers.cfg
