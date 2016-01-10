@@ -23,6 +23,8 @@ Base = declarative_base(engine)
 Session = sessionmaker(bind=engine)
 session = Session()
 
+# TODO: Change this to dynamically find years so can update with latests csv's of data from web
+
 year_vals = np.arange(1880,2011)
 
 # def chunks(l, n):
