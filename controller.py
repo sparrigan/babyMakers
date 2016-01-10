@@ -13,7 +13,7 @@ from numpy import random
 import math
 # TODO: add wtfworms import wtforms
 #Create flask instance
-app = Flask(__name__)
+application = Flask(__name__)
 
 # Import environment configuration settings for API
 # app.config.from_envvar('BABY_MAKERS_SETTINGS', silent=True)
@@ -190,19 +190,19 @@ def top_n_movies(full_name, actor_id, n, score_func):
 
 
 # TODO: Create route for index page
-@app.route('/', methods=['GET'])
+@application.route('/', methods=['GET'])
 def index():
 	return render_template('index.html')
 
-@app.route('/test', methods=['GET'])
+@application.route('/test', methods=['GET'])
 def test():
 	return render_template('test.html')
 
-@app.route('/return_list', methods=['GET'])
+@application.route('/return_list', methods=['GET'])
 def return_list():
 	return render_template('list.html')
 
-@app.route('/get_d3_data/<name>/<sex>', methods=['GET', 'POST'])
+@application.route('/get_d3_data/<name>/<sex>', methods=['GET', 'POST'])
 def get_d3_data(name, sex):
 	data_list = model.get_name_data(name, sex, 'python_dict')
 	# TODO: Note that this does not return a second error parameter,
@@ -210,13 +210,13 @@ def get_d3_data(name, sex):
 	# http://www.brettdangerfield.com/post/realtime_data_tag_cloud/)
 	return jsonify(**data_list)
 
-@app.route('/get_movie_data/', methods=['GET', 'POST'])
+@application.route('/get_movie_data/', methods=['GET', 'POST'])
 def get_movie_data():
 	movie_dict, actor_id = get_movieapi_results("Humphrey Bogart")
 	json = {'results': movie_dict, 'actor_id': actor_id}
 	return jsonify(json)
 
-# @app.route('/promise_test/<idstr>', methods=['GET', 'POST'])
+# @application.route('/promise_test/<idstr>', methods=['GET', 'POST'])
 # def promise_test(idstr):
 # 	print "Promise route fired"
 # 	# Wait a random time
@@ -228,7 +228,7 @@ def get_movie_data():
 # 	return jsonify(json)
 
 
-@app.route('/cast_check/<actor_id>/<movie_id>', methods=['GET', 'POST'])
+@application.route('/cast_check/<actor_id>/<movie_id>', methods=['GET', 'POST'])
 def cast_check(actor_id, movie_id):
 	# make cast_pos calls async with grequest if can't get promises
 	# to work async with nginx etc...
@@ -240,7 +240,7 @@ def cast_check(actor_id, movie_id):
 	return jsonify(json)
 
 
-@app.route('/movie_score/<movie_id>', methods=['GET', 'POST'])
+@application.route('/movie_score/<movie_id>', methods=['GET', 'POST'])
 def movie_score(movie_id):
 	outcome = get_movie_score(movie_id)
 	outcome['movie_id'] = int(movie_id)
@@ -251,7 +251,7 @@ def movie_score(movie_id):
 
 # TODO: Create route for getting data on user input
 # Only need route for talking to my own backend
-@app.route('/get_data', methods=["GET", "POST"])
+@application.route('/get_data', methods=["GET", "POST"])
 def get_data():
 	name = request.form['name']
 	#Validate input
@@ -261,5 +261,5 @@ def get_data():
 
 
 if __name__ == '__main__':
-	app.debug = True
-	app.run()
+	application.debug = True
+	application.run()

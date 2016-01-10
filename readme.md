@@ -12,9 +12,11 @@ Clone the repository to your local machine
 
 ### Install postgres RDBMS
 
-Use homebrew to install postgres: `brew install postgres`.
+On mac, use homebrew to install postgres: `brew install postgres`.
 
 (If you don't have homebrew - a great package installer for mac, then see [http://brew.sh/][http://brew.sh/])
+
+On linux, use `apt-get install postgresql postgresql-contrib`
 
 If you've never setup a postgres database then use: `initdb /usr/local/var/postgres -E utf8` to setup a database
 
@@ -94,7 +96,71 @@ Making sure you are running your virtual environment, with environment variables
 
 ## Run the application server
 
-Making sure that you still have the postgresql server running (if not, you can run it by typing `postgres -D /usr/local/var/postgres` into a free terminal window), now run the application server by typing `python controller.py` from the project root directory. This will serve the application to a port on localhost (check terminal readout for the exact port, typically 5000). You can then view the application by opening a web browser and navigating to 'localhost:5000' (or 'localhost:<xxxx>' if the port is some value <xxxx> other than 5000). 
+Making sure that you still have the postgresql server running (if not, you can run it by typing `postgres -D /usr/local/var/postgres` into a free terminal window), now run the application server by typing `python controller.py` from the project root directory. This will serve the application to a port on localhost (check terminal readout for the exact port, typically 5000). You can then view the application by opening a web browser and navigating to 'localhost:5000' (or 'localhost:<xxxx>' if the port is some value <xxxx> other than 5000).
+
+
+
+# DEPLOYMENT Instructions
+
+## Setting up postgresql server
+
+1. Install postgresql on server
+```
+apt-get update
+sudo apt-get install postgresql postgresql-contrib
+```
+It seems like this already starts the postgres server and it runs forever (?) check this!
+
+2. Setup user
+postgres is the default user. Note that this is setup as a linux user.  You need to login each other with that and change its password
+First we login to postgresql as postgres - which is the default superuser (NOTE: 	I don't think we can do this from being the linux postgres user, because that user doesn't have sudo rights, so do it from ubunut user).
+```
+sudo -u postgres psql postgres
+```
+Then we change the password of this user from the resulting psql prompt:
+```
+\password postgres
+```
+
+Then we need to create a database. Either from a psql prompt: `createdb babyMakers`, or from a bash prompt (not logged into the database): `sudo -u postgres createdb babyMakers` (this logs us in with postgres, might require password - haven't checked it).
+
+NOTE: that if we want to run psql to look at the database then we either have to run `psql babyMakers` from a user that has access rights (eg: do `sudo su postgres` first to change to postgres user) or call psql with postgres user name
+
+
+
+IMPORTANT NOTE::::!!!!!
+THIS NEEDS TO BE INSTALLED AS WELL IN ORDER TO RUN PSCYCOPG2 WITH PIP INSTALL
+sudo apt-get install libpq-dev
+
+
+
+
+<!-- How to SCP onto remote machine (note from terminal on local machine, not from existing ssh session):
+
+scp -r -i <.PEM KEY LOCATION ON LOCAL COMPUTER> names/ <USERNAME REMOTE>@<IP ADDRESS REMOTE>:/home/ubuntu/babyMakers/
+
+Note that the -i switch is for locating the public key and was crucial! -->
+
+
+<!-- Instructions for PostgreSQL on ubuntu: https://help.ubuntu.com/community/PostgreSQL -->
+
+<!-- To start off, we need to set the password of the PostgreSQL user (role) called "postgres"; we will not be able to access the server externally otherwise. As the local “postgres” Linux user, we are allowed to connect and manipulate the server using the psql command.
+
+In a terminal, type:
+
+
+sudo -u postgres psql postgres
+this connects as a role with same name as the local user, i.e. "postgres", to the database called "postgres" (1st argument to psql).
+
+Set a password for the "postgres" database role using the command:
+
+\password postgres
+and give your password when prompted. The password text will be hidden from the console for security purposes.
+
+Type Control+D or \q to exit the posgreSQL prompt. -->
+
+
+
 
 <!-- source babyMakers.cfg
 
