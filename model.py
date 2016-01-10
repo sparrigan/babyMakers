@@ -8,17 +8,17 @@ import numpy as np
 from sqlalchemy import *
 import time
 import json
+import os
 
-# To start postgres server from terminal
-# postgres -D /usr/local/var/postgres
-#USER: test_user
-#PW: testpw
-#md5??? 'md52cc83a98108669b4ebbcf263ef065ab6'
+PG_USERNAME = os.environ.get('PG_USERNAME')
+PG_PASSWORD = os.environ.get('PG_PASSWORD')
+DATABASE = os.environ.get('DATABASE')
+
+
 #Drop all tables one at a time:
-# psql -U 'test_user' 'test' -t -c "select 'drop table \"' || tablename || '\" cascade;' from pg_tables where schemaname = 'public'"  | psql -U 'test_user' 'test'
 
 #Connect to DB with SQLA
-engine = create_engine("postgresql://test_user:testpw@localhost/test", echo=False)
+engine = create_engine("postgresql://"+PG_USERNAME+":"+PG_PASSWORD+"@"+DATABASE, echo=False)
 Base = declarative_base(engine)
 Session = sessionmaker(bind=engine)
 session = Session()

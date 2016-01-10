@@ -7,12 +7,19 @@ import pandas
 import json
 import time
 import numpy as np
+import os
 
 from numpy import random
 import math
 # TODO: add wtfworms import wtforms
 #Create flask instance
 app = Flask(__name__)
+
+# Import environment configuration settings for API
+# app.config.from_envvar('BABY_MAKERS_SETTINGS', silent=True)
+# API_KEY = app.config['API_KEY']
+API_KEY = os.environ['API_KEY']
+
 
 def check_str(name):
 	#Make sure camel case
@@ -34,7 +41,6 @@ def get_movie_ids(json_vals):
 	return ret_list
 
 base_url = "http://api.themoviedb.org/3/"
-api_key = '&api_key=e5fae0ea529d524430820812b15b9521'
 
 def remove_repeats(movie_dict):
 	# Get list of ids in same order as list of movie dics
@@ -63,12 +69,12 @@ def get_movieapi_results(full_name):
 	"""Takes full name string (not URL encoded) and returns dict of movies"""
 	# Convert name to URL encoded string
 	full_name = quote(full_name)
-	name_url = "http://api.themoviedb.org/3/search/person?api_key=e5fae0ea529d524430820812b15b9521&query=%s" %full_name
+	name_url = "http://api.themoviedb.org/3/search/person?&api_key="+API_KEY+"&query=%s" %full_name
 	response = urllib2.urlopen(name_url)
 	data = json.load(response)
 	actor_id = data['results'][0]['id']
 	query = 'movie?with_cast=%i&sort_by=revenue.desc' %(actor_id)
-	url = base_url + 'discover/' + query + api_key
+	url = base_url + 'discover/' + query + "&api_key=" + API_KEY
 	# Response for query for actors films will contain multiple pages.
 	# Get first page to find num of pages
 	response2 = urllib2.urlopen(url)
@@ -81,7 +87,7 @@ def get_movieapi_results(full_name):
 	for page in range(2,num_pages+1):
 		#Get current page
 		pagereq = '&page=%i' %page
-		url = base_url + 'discover/' + query + pagereq + api_key
+		url = base_url + 'discover/' + query + pagereq + "&api_key=" + API_KEY
 		current_pg = json.load(urllib2.urlopen(url))
 		temp.append(current_pg)
 		#Combine dict of movies from this page with previously found ones
@@ -96,7 +102,7 @@ def get_movieapi_results(full_name):
 
 def get_cast_pos(actor_id, movie_id, cast_id_min):
 	"""Returns T/F for whether actor in top n of cast list"""
-	query = base_url + 'movie/' + str(movie_id) + '/credits?' + api_key
+	query = base_url + 'movie/' + str(movie_id) + '/credits?' + "&api_key=" + API_KEY
 
 	try:
 		page = urllib2.urlopen(query)
@@ -141,7 +147,7 @@ def get_movie_score(movie_id):
 	If actor in top n credits, returns revenue, average vote and popularity"""
 	# Get movie info from api call
 	print movie_id
-	query = base_url + 'movie/' + str(movie_id) +'?' + api_key
+	query = base_url + 'movie/' + str(movie_id) +'?' + "&api_key=" + API_KEY
 	score_json = json.load(urllib2.urlopen(query))
 
 	# Get poularity ranking from themoviedb:
