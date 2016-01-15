@@ -37,7 +37,7 @@ def get_movie_ids(json_vals):
 	"""Takes a json page and returns list of dicts with movie names and ids"""
 	ret_list = []
 	for movie in json_vals['results']:
-		ret_list.append({'movie': movie['title'], 'values': [movie['id'], int(movie['release_date'][:4])]})
+		ret_list.append({'info': {'title': movie['title'], 'm_id': movie['id'], 'release': int(movie['release_date'][:4])}})
 	return ret_list
 
 base_url = "http://api.themoviedb.org/3/"
@@ -73,7 +73,7 @@ def get_movieapi_results(full_name):
 	response = urllib2.urlopen(name_url)
 	data = json.load(response)
 	actor_id = data['results'][0]['id']
-	query = 'movie?with_cast=%i&sort_by=revenue.desc' %(actor_id)
+	query = 'movie?with_cast=%i' %(actor_id)
 	url = base_url + 'discover/' + query + "&api_key=" + API_KEY
 	# Response for query for actors films will contain multiple pages.
 	# Get first page to find num of pages
@@ -92,9 +92,10 @@ def get_movieapi_results(full_name):
 		temp.append(current_pg)
 		#Combine dict of movies from this page with previously found ones
 		movie_dict += get_movie_ids(current_pg)
-
 	# Remove repeated entries by movie_id and return
-	return remove_repeats(movie_dict), actor_id
+	# Note: turn this on if dealing with themoviedb bug on ordering searches
+	# return remove_repeats(movie_dict), actor_id
+	return movie_dict, actor_id
 
 # TODO: Way to refactor that reduces the number of movies we query for
 # more detailed information?
@@ -214,6 +215,7 @@ def get_d3_data(name, sex):
 def get_movie_data():
 	movie_dict, actor_id = get_movieapi_results("Humphrey Bogart")
 	json = {'results': movie_dict, 'actor_id': actor_id}
+	print json['results']
 	return jsonify(json)
 
 # @application.route('/promise_test/<idstr>', methods=['GET', 'POST'])
@@ -227,12 +229,15 @@ def get_movie_data():
 # 	json = {'result': ret}
 # 	return jsonify(json)
 
-
+# TODO: Getting a 500 (internal server) error with 4110/963!!!!
+# At very least, be prepared to deal with 500 in a way that can propogate
+# TODO: Getting empty response with http://localhost:5000/cast_check/4110/165857
 @application.route('/cast_check/<actor_id>/<movie_id>', methods=['GET', 'POST'])
 def cast_check(actor_id, movie_id):
 	# make cast_pos calls async with grequest if can't get promises
 	# to work async with nginx etc...
 	# TODO: Deal with 429 errors by addding to list and retrying at end
+	print movie_id
 	cast_pos, error = get_cast_pos(int(actor_id), int(movie_id), 2)
 	# Sleep to prevent 429 (TODO: Need a better solution for promises)
 	time.sleep(0.2)

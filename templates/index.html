@@ -33,6 +33,8 @@ $('.ui.dropdown')
 
 <script type="text/javascript">
 
+// TODO: Jane and Laura seem to cause promise exceptions.
+
 //Global vars
 var svg;
 var movie_g;
@@ -115,9 +117,19 @@ var setup_plot =  function(dataset) {
 	// 		'd': "M50,100 c10,0 20,-10 20,-40 c20,-10 20,0 30,0",
 	// 		'stroke-width': 2,
 	// 		'stroke': "blue"
-	// 	});
+	// 	})
 
 }
+
+
+// TODO: URL construct for movie posters:
+// http://image.tmdb.org/t/p/w92/jojz3Yw5tEqtILcqbEsO0GLEIJm.jpg
+// Find movies associated with actor/actress
+// act_name = "Humphrey Bogart";
+// Get movie data (currently defaults to server-set name)
+// TODO: Have use user-entered name
+// TODO: Have suggest possibilities on multiple returns
+
 
 // Function launched when submit button clicked
 function submitClick(event) {
@@ -132,13 +144,7 @@ function submitClick(event) {
 		// Setup plot with this data
 		update_rects(dvals);
 	});
-	// TODO: URL construct for movie posters:
-	// http://image.tmdb.org/t/p/w92/jojz3Yw5tEqtILcqbEsO0GLEIJm.jpg
-	// Find movies associated with actor/actress
-	// act_name = "Humphrey Bogart";
-	// Get movie data (currently defaults to server-set name)
-	// TODO: Have use user-entered name
-	// TODO: Have suggest possibilities on multiple returns
+
 	url_movies = "/get_movie_data";
 	d3.json(url_movies, function(json){
 		// Extract list of objects from json wrapper
@@ -155,14 +161,15 @@ function submitClick(event) {
 function plot_movie_points(movie_json, actor_id) {
 	// Make group in which to store movies
 	movie_g = svg.append('g');
+	// console.log(movie_json);
 	// Add rects for movie data
 	var movie_rects = movie_g.selectAll('rect')
-				 .data(movie_json, function(d) {return d.values[0];})
+				 .data(movie_json)
 				 .enter()
 				 .append('rect')
 				 .attr({
 					 'class': 'mrect',
-					 'x': function(d) {return xScale(d.values[1])+xScale.rangeBand()/4;},
+					 'x': function(d) {return xScale(d.info.release)+xScale.rangeBand()/4;},
 					 'y': function(d) {return 100;},
 					 'width': xScale.rangeBand()/2,
 					 'height': function(d) {return (h-100);},
@@ -170,14 +177,15 @@ function plot_movie_points(movie_json, actor_id) {
 				 });
 	// Add text for each movie
 	// TODO: Make this actually useful (rollover zoom etc...)
+
 	var movie_text = movie_g.selectAll('text')
 				.data(movie_json)
 				.enter()
 				.append('text')
-				.text(function(d) {return d.movie;})
+				.text(function(d) {return d.info.title;})
 				.attr({
 					'class': 'mtext',
-					'x': function(d) {return xScale(d.values[1])+xScale.rangeBand()/4;},
+					'x': function(d) {return xScale(d.info.release)+xScale.rangeBand()/4;},
 					'y': h-100
 				})
 				// Rotation of text: Crucial - give center of rotation too!
@@ -231,6 +239,9 @@ function score_check_promise(movie_id) {
 	});
 }
 
+
+
+
 // Return promise for plotting rects - executed at end of queue
 function score_rect_promise(response) {
 	return new Promise(function(resolve, reject) {
@@ -238,16 +249,178 @@ function score_rect_promise(response) {
 		movie_id = response[1];
 		console.log('RESPONSE IS ', response);
 		// Here is where we call stuff for each movie update
-		//Call function that calculates score given features from api
-		score = calc_score(score_data);
-		//Call function that adjusts size of movie bars here
-		console.log('CALLING score_rect_adjust')
-		score_rect_adjust(movie_id, score);
-		// Don't forget that we need to resolve the promise in order to move on
-		// the chain!
+
+		// Change movie class to 'scored' and bind score data
+		new_scored_movie(movie_id, score_data);
+		// Rescale all finished movies features based on new range if has changed:
+		rescale_movies(score_data);
+		// Update DOM rects based on new score data and rescale them if necessary
+		adjust_rects_score();
+
+		// Don't forget need to resolve promise in order to move on the chain!
 		resolve()
 	});
 }
+
+// Update class and data of newly scored movie
+function new_scored_movie(movie_id, score_data) {
+	// Get the movie we want to update class and data of:
+	update_movie = movie_g.selectAll('rect.mrect')
+				 .filter(function(d) {return d.info.m_id == movie_id;});
+	// Add class 'scored' so can search for rects that have been updated
+	update_movie.attr({
+					 'class': 'mrect scored'
+				 })
+	console.log('new_scored_movie for movie: ', movie_id, ' with pop: ', score_data.pop);
+	// Add feature values to the movies d3 __data__ attribute (so we can scale
+	// them as new max/min features come in from subsequent movie api calls)
+	// Add raw and scaled value (initially same)
+	update_movie.data()[0].feat_raw = {};
+	update_movie.data()[0].feat_scaled = {};
+	update_movie.data()[0].feat_raw.pop = score_data.pop;
+	update_movie.data()[0].feat_raw.vote = score_data.vote;
+	update_movie.data()[0].feat_scaled.pop = score_data.pop;
+	update_movie.data()[0].feat_scaled.vote = score_data.vote;
+}
+
+
+// Used by rescale function. TODO: Refactor.
+// NOTE: CHANGED POP_MAX AND VOTE_MAX FROM 999 TO 0 ???
+var pop_max = 0;
+var vote_max = 0;
+var score_lim = 0;
+popScale = d3.scale.linear()
+							 .range([0,100]);
+voteScale = d3.scale.linear()
+							 .range([0,100]);
+scoreScale = d3.scale.linear()
+							 .range([h,0]);
+
+function rescale_movies(score_data) {
+	// Extract features into array
+	vals = [score_data.pop, score_data.vote];
+	// Check whether need to update max/min values for features
+	// TODO: THIS IS HORRIBLE! VECTORIZE!
+	// pop_lim[0] = d3.min([pop_lim[0], vals[0]]);
+	pop_max = d3.max([pop_max, vals[0]]);
+	// vote_lim[0] = d3.min([vote_lim[0], vals[1]]);
+	vote_max = d3.max([vote_max, vals[1]]);
+	// Update scales for normalizing pop,vote features & score
+	popScale.domain([0, pop_max]);
+	voteScale.domain([0, vote_max]);
+	// Get all rects that are already scored
+	scored_rects = movie_g.selectAll('rect.scored');
+	// Now adjust pop and votes data attributes of scored rects with new scales
+	scored_rects
+				// each applies function to each element in selection - passing d,i
+				 .each(function(d) {
+				  newpop = popScale(d.feat_raw.pop);
+				 	newvote = voteScale(d.feat_raw.vote);
+					// Update pop and val attributes
+					d.feat_scaled.pop = newpop;
+					d.feat_scaled.vote = newvote;
+					// Update score based on these new values
+					d.score = calc_score(newpop, newvote);
+					// Check whether need to update max value for scores
+					// score_lim = d3.max([score_lim, calc_score(vals[0], vals[1])]);
+				 });
+}
+
+var i = 0;
+// Adjust movie rect according to scores as they're RECEIVED
+function adjust_rects_score(score) { //!!!! Removed mov_id as paramter
+	cols = ['green','red']
+	i = (i+1)%2;
+	// Update domain of scale that converts scores to y values for rects
+	scored_rects = movie_g.selectAll('rect.scored')
+	scores = scored_rects.data().map(function(d){return d.score;});
+	// console.log(scores);
+	min_score = d3.min(scores);
+	// console.log('min: ', min_score);
+	max_score = d3.max(scores);
+	scoreScale.domain([min_score, max_score]);
+	// Adjust rects of all scored movies
+	movie_g.selectAll('rect.scored')
+				//  .filter(function(d) {return d.values[0] == mov_id;})
+				 .transition()
+				 .duration(300)
+				 .attr({
+					 'fill': cols[i],
+					 'y': function(d) {return scoreScale(d.score);},
+					 'height': function(d) {return h-scoreScale(d.score);}
+				 });
+}
+
+function year_aggregator() {
+	// Go through movies and if in same year then add scores and place new
+	// rect, removing old ones.
+	// Get all years that have movies
+	years = movie_g.selectAll('rect.scored').data().map(function(d){return d.info.release;})
+	// Find unique years
+	years_unique = years.filter(function(val, idx, self) {return self.indexOf(val)===idx;})
+	// Select all movies with that year - act on them if more than one
+
+	// For finding max new combined score of all years (for rescale)
+	max_comb_score = 0
+
+	for (yr in years_unique) {
+		// Note need to not include combined rects as they have no info data attr
+		yr_movs = movie_g.selectAll('rect.scored').filter("*:not(.multi)").filter(function(d) {return d.info.release == years_unique[yr];})
+		//TODO: IS REMOVING MORE MOVIES THAN SHOULD DO - LOOK HERE IN CASE IS MISSING
+		if (yr_movs[0].length > 1) {
+			// Create combined datum for all movies in this year
+			// TODO: iterate through key values and collect
+
+			comb_datum = yr_movs.data();
+			//  Get combined score using aggregate function we define
+			comb_score = comb_score_rule(comb_datum.map(function(d){return d.score;}));
+			// Update max comb_score if necessary
+			max_comb_score = d3.max([max_comb_score, comb_score]);
+			// Get current data from multi selections
+			new_data = movie_g.selectAll('rect.scored.multi').data();
+			// Add new datum
+			new_data.push({
+				'multi_data':comb_datum,
+				'score': comb_score,
+				'info': {'release': years_unique[yr]}
+				})
+			// Create new rect with data for all movies in this year
+			movie_g.selectAll('rect.scored.multi')
+							// Add all the combined data as list in dict w key 'multi_data'
+							.data(new_data)
+							.enter()
+							.append('rect')
+							.attr({
+								'class': 'rect scored multi',
+								'fill': 'blue',
+								'x': function(d) {return xScale(years_unique[yr])+xScale.rangeBand()/4;},
+								'width': xScale.rangeBand()/2
+								// Note: y value will be set from score in rescale operation below
+							})
+
+			// Remove old rects
+			yr_movs.remove();
+			// Update rects y values due to new rescaled scores
+			adjust_rects_score(max_comb_score);
+
+
+		}
+	}
+	// Re-scale all rects
+}
+
+
+
+// This is called by adjust_rects_score and calcs score from features
+function calc_score(pop, vote) {
+	return pop+vote;
+}
+
+function comb_score_rule(score_list) {
+	// Takes a list of scores and returns the combination by addition
+	return score_list.reduce((a,b)=>a+b);
+}
+
 
 // Setup and act on promises for removing films based on cast-list
 function movie_cull(movie_json) {
@@ -257,7 +430,7 @@ function movie_cull(movie_json) {
 	starring_movs = []
 	for (mov in movie_json) {
 		// Get movie_id for current movie
-		movie_id = movie_json[mov].values[0];
+		movie_id = movie_json[mov].info.m_id;
 		// Create promise for querying api via server for actor in movie
 		cc_prom = cast_check_promise(actor_id, movie_id).then(function(response){
 			console.log('Success!', response);
@@ -297,7 +470,7 @@ function check_scores(starring_movs) {
 				return score_rect_promise(response);
 			}).then(function(response) {
 				// Anything after each promise fulfilled from queue to go here
-				console.log('Just of top of queue is: ', response);
+				// console.log('Just of top of queue is: ', response);
 			})
 		// Error from promise for getting score from api
 		}, function(error) {
@@ -313,38 +486,42 @@ function check_scores(starring_movs) {
 			console.log('SCORES ALL DONE!!!!');
 			// TODO: CALCULATE TOP TEN WHEN HAVE ALL MOVIES HERE....
 			//Using filter, sort or order?
+
+			// Now combine scores from same year and replace multiple movies in single
+			// year with one effective movie of added score
+			year_aggregator();
+
+			// Now select only the top five scoring movies
+			var yr_sort = sort_scores();
+			// Identify all except top 5 (for removal)
+			var bottom = yr_sort.slice(5,yr_sort.length)
+			// Remove all but top five years
+			movie_g.selectAll('rect.scored')
+					.filter(function(d) {
+						var crnt_yr = String(d.info.release);
+						return (bottom.indexOf(crnt_yr) > -1);
+					})
+					.remove()
+
 		});
 	});
 }
 
-var pop_lim = [999,0];
-var vote_lim = [999,0];
-popScale = d3.scale.linear()
-							 .range([0,100]);
-voteScale = d3.scale.linear()
-							 .range([0,100]);
-
-function calc_score(response) {
-	// Extract features into array
-	vals = [response.pop, response.vote];
-	// Check whether need to update max/min values
-	// TODO: THIS IS HORRIBLE! VECTORIZE!
-	pop_lim[0] = d3.min([pop_lim[0], vals[0]]);
-	pop_lim[1] = d3.max([pop_lim[1], vals[0]]);
-	vote_lim[0] = d3.min([vote_lim[0], vals[1]]);
-	vote_lim[1] = d3.max([vote_lim[1], vals[1]]);
-
-	// Re-scale pop and vote features based on current dataset
-	popScale.domain([pop_lim[0], pop_lim[1]]);
-	voteScale.domain([vote_lim[0], vote_lim[1]]);
-
-// Now apply scale to all rects we have scores for, and put others at min value
 
 
-	// Normalize value of vote and poularity
-	console.log('WHAT WE GET IN CALC_SCORE: ', response);
-	return 0;
-};
+function sort_scores() {
+	// Returns years sorted by scores, descending
+	// Select all years
+	all_yrs = movie_g.selectAll('rect.scored').data();
+	// Create object with years as keys and associated scores as values
+	yrs_scores = {};
+	all_yrs.map(function(d){yrs_scores[d.info.release]=d.score;});
+	// Sort object keys (years) based on values (scores)
+	sorted_yrs = Object.keys(yrs_scores).sort(function(a,b){return yrs_scores[b]-yrs_scores[a]});
+	// Select top five
+	return sorted_yrs;
+}
+
 
 // TODO: NEED TO NORMALIZE BOTH THE FEATURES AND THEN ALSO THE TOTAL VALUE TO PLOT
 
@@ -354,20 +531,6 @@ function calc_score(response) {
 var max_rect = 0;
 var min_rect = 0;
 
-// Adjust movie rect according to scores as they're RECEIVED
-function score_rect_adjust(mov_id, score) {
-
-	// Turn rect green and adjust height
-	movie_g.selectAll('rect.mrect')
-				 .filter(function(d) {return d.values[0] == mov_id;})
-				 .transition()
-				 .duration(200)
-				 .attr({
-					 'fill': 'green'
-				 });
-
-}
-
 
 // movie_g.selectAll('rect.mrect').attr('height', function(d){return (h-d3.select(this).attr('y'));});
 
@@ -375,18 +538,51 @@ function score_rect_adjust(mov_id, score) {
 // Removes a bar and text downwards when movie culled
 function remove_movie_bar(remove_val) {
 	movie_g.selectAll('rect.mrect')
-				 .filter(function(d) {return d.values[0] == remove_val;})
+				 .filter(function(d) {return d.info.m_id == remove_val;})
 				 .transition()
 				 .duration(500)
 				 .attr('y',1000)
 				 .remove();
-	// Remove associated text
+	// Flash up movie name as it dissapears
+	// NEED TO GET X VALUE AND MOVIE NAME
 	movie_g.selectAll('text.mtext')
-				 .filter(function(d) {return d.values[0] == remove_val;})
-				 .transition()
-				 .duration(500)
-				 .attr('x',-1000)
-				 .remove();
+					 .data(["Oh hello"])
+					 .enter()
+					 .append('text')
+					 .text(function(d){return d;})
+					 .attr({
+						'class': 'mtext'
+						'x': xScale(1920),
+						'y':100,
+						'fill':'black',
+					  'fill-opacity':0
+					 })
+						// Rotate text ninety degrees
+					 .attr('transform',function(d,i){
+	 					return 'rotate(-90,'+d3.select(this).attr("x")+','+d3.select(this).attr("y")+')';})
+					 .transition()
+					 .duration(800)
+					 .attr({
+						'fill-opacity':1,
+						'x':xScale(1920)+20
+					 })
+					 .transition()
+					 .delay(800)
+					 .duration(800)
+					 .attr({
+						'fill-opacity':0,
+						'x':xScale(1920)
+					 })
+					 .remove()
+
+
+	// // Remove associated text
+	// movie_g.selectAll('text.mtext')
+	// 			 .filter(function(d) {return d.info.m_id == remove_val;})
+	// 			 .transition()
+	// 			 .duration(500)
+	// 			 .attr('x',-1000)
+	// 			 .remove();
 }
 
 // Update rects for name history when new data to be bound
