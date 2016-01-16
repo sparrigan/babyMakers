@@ -150,6 +150,12 @@ function submitClick(event) {
 		// Extract list of objects from json wrapper
 		movie_data = json.results;
 		actor_id = json.actor_id;
+
+		aa = movie_data.map(function(d){return d.info.m_id;});
+		var counts = {};
+		aa.forEach(function(x) { counts[x] = (counts[x] || 0)+1; });
+		console.log(counts);
+
 		//Plot the movie_data
 		plot_movie_points(movie_data, actor_id);
 		// ra = Object.keys(json).map(function(k) { return [k, json[k]]});
@@ -170,27 +176,41 @@ function plot_movie_points(movie_json, actor_id) {
 				 .attr({
 					 'class': 'mrect',
 					 'x': function(d) {return xScale(d.info.release)+xScale.rangeBand()/4;},
-					 'y': function(d) {return 100;},
+					 'y': -400,
 					 'width': xScale.rangeBand()/2,
 					 'height': function(d) {return (h-100);},
-					 'fill': 'black'
-				 });
+					 'fill': 'rgb(104,104,104)',
+					 'fill-opacity': 0.8
+				 })
+				 .transition()
+				 .duration(600)
+				 .delay(function(d,i){return (i-1)*10;})
+				 .attr({'y': function(d) {return 100;}});
+
+
+	// Debugging double movies:
+	console.log('CHECK FOR DOUBLE 121848 entry...');
+	bb = [];
+	movie_g.selectAll('rect').each(function(d) {bb.push(d.info.m_id);});
+	var counts2 = {};
+	bb.forEach(function(x) { counts2[x] = (counts2[x] || 0)+1; });
+	console.log(counts2);
 	// Add text for each movie
 	// TODO: Make this actually useful (rollover zoom etc...)
 
-	var movie_text = movie_g.selectAll('text')
-				.data(movie_json)
-				.enter()
-				.append('text')
-				.text(function(d) {return d.info.title;})
-				.attr({
-					'class': 'mtext',
-					'x': function(d) {return xScale(d.info.release)+xScale.rangeBand()/4;},
-					'y': h-100
-				})
-				// Rotation of text: Crucial - give center of rotation too!
-				.attr('transform',function(d,i){
-					return 'rotate(-90,'+d3.select(this).attr("x")+','+d3.select(this).attr("y")+')';})
+	// var movie_text = movie_g.selectAll('text')
+	// 			.data(movie_json)
+	// 			.enter()
+	// 			.append('text')
+	// 			.text(function(d) {return d.info.title;})
+	// 			.attr({
+	// 				'class': 'mtext',
+	// 				'x': function(d) {return xScale(d.info.release)+xScale.rangeBand()/4;},
+	// 				'y': h-100
+	// 			})
+	// 			// Rotation of text: Crucial - give center of rotation too!
+	// 			.attr('transform',function(d,i){
+	// 				return 'rotate(-90,'+d3.select(this).attr("x")+','+d3.select(this).attr("y")+')';})
 
 		// Begin requesting info from server to cull unimportant movies
 		movie_cull(movie_json, actor_id);
@@ -265,12 +285,11 @@ function score_rect_promise(response) {
 // Update class and data of newly scored movie
 function new_scored_movie(movie_id, score_data) {
 	// Get the movie we want to update class and data of:
-	update_movie = movie_g.selectAll('rect.mrect')
+	var update_movie = movie_g.selectAll('rect.mrect')
 				 .filter(function(d) {return d.info.m_id == movie_id;});
-	// Add class 'scored' so can search for rects that have been updated
-	update_movie.attr({
-					 'class': 'mrect scored'
-				 })
+
+	if (update_movie.data().length > 1) {console.log("!!!!!DOUBLE MOVIE!!!!!");}
+
 	console.log('new_scored_movie for movie: ', movie_id, ' with pop: ', score_data.pop);
 	// Add feature values to the movies d3 __data__ attribute (so we can scale
 	// them as new max/min features come in from subsequent movie api calls)
@@ -281,6 +300,18 @@ function new_scored_movie(movie_id, score_data) {
 	update_movie.data()[0].feat_raw.vote = score_data.vote;
 	update_movie.data()[0].feat_scaled.pop = score_data.pop;
 	update_movie.data()[0].feat_scaled.vote = score_data.vote;
+
+	console.log('now have actually assigned a value of ',
+				update_movie.data()[0].feat_raw.pop,
+				' to feat_raw.pop, and ', 	update_movie.data()[0].feat_scaled.pop,
+			' to feat_scaled.pop');
+
+	// Note: Might be crucial that we do this AFTER above???
+	// Add class 'scored' so can search for rects that have been updated
+	update_movie.attr({
+					 'class': 'mrect scored'
+				 })
+
 }
 
 
@@ -289,11 +320,11 @@ function new_scored_movie(movie_id, score_data) {
 var pop_max = 0;
 var vote_max = 0;
 var score_lim = 0;
-popScale = d3.scale.linear()
+var popScale = d3.scale.linear()
 							 .range([0,100]);
-voteScale = d3.scale.linear()
+var voteScale = d3.scale.linear()
 							 .range([0,100]);
-scoreScale = d3.scale.linear()
+var scoreScale = d3.scale.linear()
 							 .range([h,0]);
 
 function rescale_movies(score_data) {
@@ -309,7 +340,10 @@ function rescale_movies(score_data) {
 	popScale.domain([0, pop_max]);
 	voteScale.domain([0, vote_max]);
 	// Get all rects that are already scored
-	scored_rects = movie_g.selectAll('rect.scored');
+	// RAAA!!!!!!!!RAAA!!! When next crashes take a look at scored_rects
+	// and see what pop value is of the movie that caused the trouble - whas it
+	// removed inbetween being called? is feat_raw obj setup properly?
+	scored_rects = movie_g.selectAll('rect.mrect.scored');
 	// Now adjust pop and votes data attributes of scored rects with new scales
 	scored_rects
 				// each applies function to each element in selection - passing d,i
@@ -326,24 +360,32 @@ function rescale_movies(score_data) {
 				 });
 }
 
+
 var i = 0;
 // Adjust movie rect according to scores as they're RECEIVED
+// TODO: This function doesn't actually use the parameter passed to it! remove
 function adjust_rects_score(score) { //!!!! Removed mov_id as paramter
 	cols = ['green','red']
 	i = (i+1)%2;
 	// Update domain of scale that converts scores to y values for rects
-	scored_rects = movie_g.selectAll('rect.scored')
+	scored_rects = movie_g.selectAll('rect.mrect.scored')
 	scores = scored_rects.data().map(function(d){return d.score;});
 	// console.log(scores);
 	min_score = d3.min(scores);
 	// console.log('min: ', min_score);
 	max_score = d3.max(scores);
-	scoreScale.domain([min_score, max_score]);
+	// CHANGED TO ZERO
+	scoreScale.domain([0, max_score]);
 	// Adjust rects of all scored movies
-	movie_g.selectAll('rect.scored')
+	// NOTE NOTE NOTE: This could be problematic, as it appears that if a
+	// transition doesn't have time to finish before another one tries to 'write
+	// over it' then it can stop the change happening at all. To try and overcome
+	// this if necessary, can either use  .each("end", callback) to chain
+	// transitions, or can define a variable for selection and chain onto that (?)
+	movie_g.selectAll('rect.mrect.scored')
 				//  .filter(function(d) {return d.values[0] == mov_id;})
 				 .transition()
-				 .duration(300)
+				 .duration(100)
 				 .attr({
 					 'fill': cols[i],
 					 'y': function(d) {return scoreScale(d.score);},
@@ -355,7 +397,7 @@ function year_aggregator() {
 	// Go through movies and if in same year then add scores and place new
 	// rect, removing old ones.
 	// Get all years that have movies
-	years = movie_g.selectAll('rect.scored').data().map(function(d){return d.info.release;})
+	years = movie_g.selectAll('rect.mrect.scored').data().map(function(d){return d.info.release;})
 	// Find unique years
 	years_unique = years.filter(function(val, idx, self) {return self.indexOf(val)===idx;})
 	// Select all movies with that year - act on them if more than one
@@ -365,7 +407,7 @@ function year_aggregator() {
 
 	for (yr in years_unique) {
 		// Note need to not include combined rects as they have no info data attr
-		yr_movs = movie_g.selectAll('rect.scored').filter("*:not(.multi)").filter(function(d) {return d.info.release == years_unique[yr];})
+		yr_movs = movie_g.selectAll('rect.mrect.scored').filter("*:not(.multi)").filter(function(d) {return d.info.release == years_unique[yr];})
 		//TODO: IS REMOVING MORE MOVIES THAN SHOULD DO - LOOK HERE IN CASE IS MISSING
 		if (yr_movs[0].length > 1) {
 			// Create combined datum for all movies in this year
@@ -377,7 +419,7 @@ function year_aggregator() {
 			// Update max comb_score if necessary
 			max_comb_score = d3.max([max_comb_score, comb_score]);
 			// Get current data from multi selections
-			new_data = movie_g.selectAll('rect.scored.multi').data();
+			new_data = movie_g.selectAll('rect.mrect.scored.multi').data();
 			// Add new datum
 			new_data.push({
 				'multi_data':comb_datum,
@@ -385,24 +427,27 @@ function year_aggregator() {
 				'info': {'release': years_unique[yr]}
 				})
 			// Create new rect with data for all movies in this year
-			movie_g.selectAll('rect.scored.multi')
+			movie_g.selectAll('rect.mrect.scored.multi')
 							// Add all the combined data as list in dict w key 'multi_data'
 							.data(new_data)
 							.enter()
 							.append('rect')
 							.attr({
-								'class': 'rect scored multi',
-								'fill': 'blue',
+								'class': 'mrect scored multi',
+								// 'fill': 'blue',
+								// 'y': 0,
+								// 'height': 200,
 								'x': function(d) {return xScale(years_unique[yr])+xScale.rangeBand()/4;},
 								'width': xScale.rangeBand()/2
 								// Note: y value will be set from score in rescale operation below
 							})
 
 			// Remove old rects
-			yr_movs.remove();
+			yr_movs.transition().duration(100).attr({'y':-400}).remove();
 			// Update rects y values due to new rescaled scores
 			adjust_rects_score(max_comb_score);
 
+			console.log('Aggregation complete');
 
 		}
 	}
@@ -491,17 +536,33 @@ function check_scores(starring_movs) {
 			// year with one effective movie of added score
 			year_aggregator();
 
+			// Change any remaining to green
+			movie_g.selectAll('rect.mrect.scored')
+				.attr({'fill':'green'});
+
 			// Now select only the top five scoring movies
 			var yr_sort = sort_scores();
 			// Identify all except top 5 (for removal)
 			var bottom = yr_sort.slice(5,yr_sort.length)
-			// Remove all but top five years
-			movie_g.selectAll('rect.scored')
+			// Remove all but top five years, and colour remaining green
+			movie_g.selectAll('rect.mrect.scored')
 					.filter(function(d) {
 						var crnt_yr = String(d.info.release);
 						return (bottom.indexOf(crnt_yr) > -1);
 					})
-					.remove()
+					.transition()
+					.duration(1000)
+					.attr({'y':-400})
+					.remove().each("end", function() {
+						// Colour remaining rects green when prev transition finished
+						movie_g.selectAll('rect.mrect.scored')
+							.transition()
+							.duration(900)
+							.attr({'fill': 'green'});
+					});
+
+			// Colour surviving rects green
+
 
 		});
 	});
@@ -512,7 +573,7 @@ function check_scores(starring_movs) {
 function sort_scores() {
 	// Returns years sorted by scores, descending
 	// Select all years
-	all_yrs = movie_g.selectAll('rect.scored').data();
+	all_yrs = movie_g.selectAll('rect.mrect.scored').data();
 	// Create object with years as keys and associated scores as values
 	yrs_scores = {};
 	all_yrs.map(function(d){yrs_scores[d.info.release]=d.score;});
@@ -537,22 +598,34 @@ var min_rect = 0;
 
 // Removes a bar and text downwards when movie culled
 function remove_movie_bar(remove_val) {
-	movie_g.selectAll('rect.mrect')
-				 .filter(function(d) {return d.info.m_id == remove_val;})
+	current_mov = movie_g.selectAll('rect.mrect')
+									.filter(function(d){return d.info.m_id==remove_val;});
+	console.log('Size of current_mov: ', current_mov.length);
+	// Flash up movie name as it dissapears
+	// Get movie name, x val from movie
+	mov_data = current_mov.data()[0].info;
+	// Get existing data of text on screen (in case concurently remove two)
+	text_data = movie_g.selectAll('text.mtext').data();
+	// Add data for new text we want to add
+	text_data.push(mov_data);
+
+	// Remove rect
+	current_mov
 				 .transition()
 				 .duration(500)
 				 .attr('y',1000)
 				 .remove();
-	// Flash up movie name as it dissapears
-	// NEED TO GET X VALUE AND MOVIE NAME
+
+
+	// Re-bind data with new element and add new text animation
 	movie_g.selectAll('text.mtext')
-					 .data(["Oh hello"])
+					 .data(text_data)
 					 .enter()
 					 .append('text')
-					 .text(function(d){return d;})
+					 .text(function(d){return d.title;})
 					 .attr({
-						'class': 'mtext'
-						'x': xScale(1920),
+						'class': 'mtext',
+						'x': function(d) {return xScale(d.release);},
 						'y':100,
 						'fill':'black',
 					  'fill-opacity':0
@@ -564,14 +637,14 @@ function remove_movie_bar(remove_val) {
 					 .duration(800)
 					 .attr({
 						'fill-opacity':1,
-						'x':xScale(1920)+20
+						'x':function(d) {return xScale(d.release)+20;}
 					 })
 					 .transition()
 					 .delay(800)
 					 .duration(800)
 					 .attr({
 						'fill-opacity':0,
-						'x':xScale(1920)
+						'x': function(d) {return xScale(d.release);}
 					 })
 					 .remove()
 

@@ -44,7 +44,7 @@ base_url = "http://api.themoviedb.org/3/"
 
 def remove_repeats(movie_dict):
 	# Get list of ids in same order as list of movie dics
-	id_list = [x['values'][0] for x in movie_dict]
+	id_list = [x['info']['m_id'] for x in movie_dict]
 
 	# Create dict of occurences of each number
 	y = np.bincount(id_list)
@@ -53,11 +53,11 @@ def remove_repeats(movie_dict):
 	del_idx = []
 	# Now loop through movie_dict entries, remove if more than one occurences
 	for idx, mov in enumerate(movie_dict):
-		if count_dic[mov['values'][0]] > 1:
+		if count_dic[mov['info']['m_id']] > 1:
 			# log entry for delete
 			del_idx.append(idx)
 			# Reduce counts for this entry
-			count_dic[mov['values'][0]] -= 1
+			count_dic[mov['info']['m_id']] -= 1
 	# Now delete those entries from list in reverse
 	for index in sorted(del_idx, reverse=True):
 		del movie_dict[index]
@@ -92,9 +92,24 @@ def get_movieapi_results(full_name):
 		temp.append(current_pg)
 		#Combine dict of movies from this page with previously found ones
 		movie_dict += get_movie_ids(current_pg)
+
+
+
+	test = [x['info']['m_id'] for x in movie_dict]
+	from collections import Counter
+	print Counter(test)
+	print len(movie_dict)
 	# Remove repeated entries by movie_id and return
 	# Note: turn this on if dealing with themoviedb bug on ordering searches
-	# return remove_repeats(movie_dict), actor_id
+
+	movie_dict = remove_repeats(movie_dict)
+
+	test = [x['info']['m_id'] for x in movie_dict]
+	from collections import Counter
+	print Counter(test)
+	print len(movie_dict)
+
+
 	return movie_dict, actor_id
 
 # TODO: Way to refactor that reduces the number of movies we query for
@@ -147,7 +162,7 @@ def get_movie_score(movie_id):
 	in actors career
 	If actor in top n credits, returns revenue, average vote and popularity"""
 	# Get movie info from api call
-	print movie_id
+	# print movie_id
 	query = base_url + 'movie/' + str(movie_id) +'?' + "&api_key=" + API_KEY
 	score_json = json.load(urllib2.urlopen(query))
 
@@ -215,7 +230,7 @@ def get_d3_data(name, sex):
 def get_movie_data():
 	movie_dict, actor_id = get_movieapi_results("Humphrey Bogart")
 	json = {'results': movie_dict, 'actor_id': actor_id}
-	print json['results']
+	# print json['results']
 	return jsonify(json)
 
 # @application.route('/promise_test/<idstr>', methods=['GET', 'POST'])
@@ -237,7 +252,7 @@ def cast_check(actor_id, movie_id):
 	# make cast_pos calls async with grequest if can't get promises
 	# to work async with nginx etc...
 	# TODO: Deal with 429 errors by addding to list and retrying at end
-	print movie_id
+	# print movie_id
 	cast_pos, error = get_cast_pos(int(actor_id), int(movie_id), 2)
 	# Sleep to prevent 429 (TODO: Need a better solution for promises)
 	time.sleep(0.2)
