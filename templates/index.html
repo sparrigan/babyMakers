@@ -136,7 +136,12 @@ function submitClick(event) {
 	// Get name entered in form
 	new_name = document.getElementById('name_val').value;
 	new_sex = document.getElementById('sex_val').innerText;
-	url = "/get_d3_data/" + new_name + "/" + new_sex;
+	// Get first and last names from string
+	name_split = new_name.split(" ");
+	first_name = name_split[0];
+	console.log(first_name);
+	last_name = name_split[1];
+	url = "/get_d3_data/" + first_name + "/" + new_sex;
 	// Update rects with name birth values
 	d3.json(url , function(json) {
 		// Extract data from json dict into a JS array of values
@@ -145,7 +150,7 @@ function submitClick(event) {
 		update_rects(dvals);
 	});
 
-	url_movies = "/get_movie_data";
+	url_movies = "/get_movie_data/" + first_name + "/" + last_name;
 	d3.json(url_movies, function(json){
 		// Extract list of objects from json wrapper
 		movie_data = json.results;
@@ -596,6 +601,7 @@ var min_rect = 0;
 // movie_g.selectAll('rect.mrect').attr('height', function(d){return (h-d3.select(this).attr('y'));});
 
 
+
 // Removes a bar and text downwards when movie culled
 function remove_movie_bar(remove_val) {
 	current_mov = movie_g.selectAll('rect.mrect')
@@ -627,7 +633,7 @@ function remove_movie_bar(remove_val) {
 						'class': 'mtext',
 						'x': function(d) {return xScale(d.release);},
 						'y':100,
-						'fill':'black',
+						'fill':'red',
 					  'fill-opacity':0
 					 })
 						// Rotate text ninety degrees

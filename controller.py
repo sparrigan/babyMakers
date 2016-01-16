@@ -37,8 +37,18 @@ def get_movie_ids(json_vals):
 	"""Takes a json page and returns list of dicts with movie names and ids"""
 	ret_list = []
 	for movie in json_vals['results']:
-		ret_list.append({'info': {'title': movie['title'], 'm_id': movie['id'], 'release': int(movie['release_date'][:4])}})
+		# Only add movie to list if json contains info needed in right format
+		if ((len(movie['title'])>0) & (isInt_str(movie['id'])) & (isInt_str(movie['release_date'][:4]))):
+			# REMOVE THIS WHEN UPDATE DATABASE!?!?!?
+			if (int(movie['release_date'][:4]) <= 2010):
+				ret_list.append({'info': {'title': movie['title'], 'm_id': movie['id'], 'release': int(movie['release_date'][:4])}})
 	return ret_list
+
+
+def isInt_str(v):
+	''' Checks if string contains an int'''
+	v = str(v).strip()
+	return v=='0' or (v if v.find('..') > -1 else v.lstrip('-+').rstrip('0').rstrip('.')).isdigit()
 
 base_url = "http://api.themoviedb.org/3/"
 
@@ -68,13 +78,18 @@ def remove_repeats(movie_dict):
 def get_movieapi_results(full_name):
 	"""Takes full name string (not URL encoded) and returns dict of movies"""
 	# Convert name to URL encoded string
+	print full_name
 	full_name = quote(full_name)
+	print full_name
 	name_url = "http://api.themoviedb.org/3/search/person?&api_key="+API_KEY+"&query=%s" %full_name
+	print name_url
 	response = urllib2.urlopen(name_url)
 	data = json.load(response)
 	actor_id = data['results'][0]['id']
+	print actor_id
 	query = 'movie?with_cast=%i' %(actor_id)
 	url = base_url + 'discover/' + query + "&api_key=" + API_KEY
+	print url
 	# Response for query for actors films will contain multiple pages.
 	# Get first page to find num of pages
 	response2 = urllib2.urlopen(url)
@@ -226,9 +241,9 @@ def get_d3_data(name, sex):
 	# http://www.brettdangerfield.com/post/realtime_data_tag_cloud/)
 	return jsonify(**data_list)
 
-@application.route('/get_movie_data/', methods=['GET', 'POST'])
-def get_movie_data():
-	movie_dict, actor_id = get_movieapi_results("Humphrey Bogart")
+@application.route('/get_movie_data/<f_name>/<l_name>', methods=['GET', 'POST'])
+def get_movie_data(f_name, l_name):
+	movie_dict, actor_id = get_movieapi_results(f_name+" "+l_name)
 	json = {'results': movie_dict, 'actor_id': actor_id}
 	# print json['results']
 	return jsonify(json)
@@ -283,3 +298,4 @@ def get_data():
 if __name__ == '__main__':
 	application.debug = True
 	application.run()
+	# application.run(host = '0.0.0.0')
