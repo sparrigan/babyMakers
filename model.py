@@ -106,7 +106,7 @@ def _insert_all_rows(names_df, chunk_size):
 		# 	i += 1
 
 # TODO: Refactor this to call functions and simplify m/f flow
-def get_name_data(name, sex, ret_type = 'json'):
+def get_name_data(name, sex, start_yr, ret_type = 'json'):
 	if sex in ['m', 'M', 'male', 'Male']:
 		qry = session.query(Male).filter_by(name=name)
 		if qry.first():
@@ -115,7 +115,8 @@ def get_name_data(name, sex, ret_type = 'json'):
 			#Remove non-column entries that might be passed by SQLA
 			#And remove col prefix from others
 			for keyval in q_dict.keys():
-				if keyval[:3] != 'col':
+				print keyval
+				if ((keyval[:3] != 'col') or (keyval[3:]<start_yr)):
 					q_dict.pop(keyval)
 				else:
 					q_dict[keyval[3:]] = q_dict.pop(keyval)

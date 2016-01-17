@@ -233,9 +233,9 @@ def test():
 def return_list():
 	return render_template('list.html')
 
-@application.route('/get_d3_data/<name>/<sex>', methods=['GET', 'POST'])
-def get_d3_data(name, sex):
-	data_list = model.get_name_data(name, sex, 'python_dict')
+@application.route('/get_d3_data/<name>/<sex>/<start_yr>', methods=['GET', 'POST'])
+def get_d3_data(name, sex, start_yr):
+	data_list = model.get_name_data(name, sex, start_yr, 'python_dict')
 	# TODO: Note that this does not return a second error parameter,
 	# which d3.json function expects normally (eg: see use of d3.json here:
 	# http://www.brettdangerfield.com/post/realtime_data_tag_cloud/)

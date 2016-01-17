@@ -20,6 +20,11 @@
 	  Submit
 	</button>
 </center>
+
+<div class="row">
+<div class="plot_area"></div>
+</div>
+
 <!-- Script for initialising semantic dropdown -->
 <script>
 $('.ui.dropdown')
@@ -49,10 +54,11 @@ var w = w_total - margin.left - margin.right,
 		h = h_total - margin.top - margin.bottom;
 // Resolved promise to chain off for queueing movie rect updates
 var update_rect_sequence = Promise.resolve();
+var start_yr = 1930;
 
 
 //SVG container
-svg = d3.select('body')
+svg = d3.select('.plot_area')
 						.append('svg')
 						.attr('width', w + margin.left + margin.right)
 						.attr('height', h + margin.top + margin.bottom)
@@ -61,7 +67,8 @@ svg = d3.select('body')
 
 // Initial plot before choice
 //TODO: Replace this with animation or existing actor values
-d3.json("{{ url_for('get_d3_data', name='Nicholas', sex='M') }}", function(json) {
+url = "/get_d3_data/Nicholas/M/" + start_yr;
+d3.json(url, function(json) {
 	// Extract data from json dict into a JS array of values
 	var dvals = Object.keys(json).map(function(k) { return json[k]});
 	// Setup plot with this data
@@ -72,7 +79,7 @@ d3.json("{{ url_for('get_d3_data', name='Nicholas', sex='M') }}", function(json)
 var setup_plot =  function(dataset) {
 	//Create scales - build range as years.
 	xScale = d3.scale.ordinal()
-								 .domain(d3.range(1880,2011))
+								 .domain(d3.range(1930,2011))
 								 .rangeBands([0,w],0.05);
 	yScale = d3.scale.linear()
 								 .domain([d3.min(dataset), d3.max(dataset)])
@@ -86,7 +93,7 @@ var setup_plot =  function(dataset) {
 			 .attr( {
 				 'class': 'barRect',
 				//  Note that we here rescale our index to proper year
-				 'x': function(d,i) {return xScale(i+1880);},
+				 'x': function(d,i) {return xScale(i+start_yr);},
 				 'y': function(d) {return yScale(d);},
 				 'width': xScale.rangeBand(),
 				 'height': function(d) {return h-yScale(d);},
@@ -99,7 +106,7 @@ var setup_plot =  function(dataset) {
 	var xAxis = d3.svg.axis()
 							.scale(xScale)
 							.orient('bottom')
-							.tickValues(d3.range(1880,2011,20));
+							.tickValues(d3.range(start_yr,2011,20));
 	svg.append('g')
 		 .attr('class', 'axis')
 		 .attr('transform', 'translate(0,'+h+')')
@@ -141,7 +148,7 @@ function submitClick(event) {
 	first_name = name_split[0];
 	console.log(first_name);
 	last_name = name_split[1];
-	url = "/get_d3_data/" + first_name + "/" + new_sex;
+	url = "/get_d3_data/" + first_name + "/" + new_sex + "/" + start_yr;
 	// Update rects with name birth values
 	d3.json(url , function(json) {
 		// Extract data from json dict into a JS array of values
@@ -171,6 +178,13 @@ function submitClick(event) {
 // Plot points for movies returned from server
 function plot_movie_points(movie_json, actor_id) {
 	// Make group in which to store movies
+	if (movie_g) {
+		movie_g
+			.transition()
+			.duration(100)
+			.attr({"transform": "translate(0, 600)"})
+			.remove();
+	}
 	movie_g = svg.append('g');
 	// console.log(movie_json);
 	// Add rects for movie data
@@ -193,13 +207,6 @@ function plot_movie_points(movie_json, actor_id) {
 				 .attr({'y': function(d) {return 100;}});
 
 
-	// Debugging double movies:
-	console.log('CHECK FOR DOUBLE 121848 entry...');
-	bb = [];
-	movie_g.selectAll('rect').each(function(d) {bb.push(d.info.m_id);});
-	var counts2 = {};
-	bb.forEach(function(x) { counts2[x] = (counts2[x] || 0)+1; });
-	console.log(counts2);
 	// Add text for each movie
 	// TODO: Make this actually useful (rollover zoom etc...)
 
@@ -452,8 +459,6 @@ function year_aggregator() {
 			// Update rects y values due to new rescaled scores
 			adjust_rects_score(max_comb_score);
 
-			console.log('Aggregation complete');
-
 		}
 	}
 	// Re-scale all rects
@@ -488,7 +493,9 @@ function movie_cull(movie_json) {
 			if (response.result == false) {
 				remove_movie_bar(response.movie_id);
 			} else {
-				starring_movs.push(response.movie_id)
+				keep_movie_bar(response.movie_id);
+				starring_movs.push(response.movie_id);
+
 			}
 		}, function(error) {
 			console.log('Failed :(', error);
@@ -558,13 +565,14 @@ function check_scores(starring_movs) {
 					.transition()
 					.duration(1000)
 					.attr({'y':-400})
-					.remove().each("end", function() {
-						// Colour remaining rects green when prev transition finished
+					.each("end", function() {
+						// Colour remaining rects black when prev transition finished
 						movie_g.selectAll('rect.mrect.scored')
 							.transition()
 							.duration(900)
-							.attr({'fill': 'green'});
-					});
+							.attr({'fill': 'black'});
+					})
+					.remove();
 
 			// Colour surviving rects green
 
@@ -600,13 +608,57 @@ var min_rect = 0;
 
 // movie_g.selectAll('rect.mrect').attr('height', function(d){return (h-d3.select(this).attr('y'));});
 
+function keep_movie_bar(keep_val) {
+	current_mov = movie_g.selectAll('rect.mrect')
+									.filter(function(d){return d.info.m_id==keep_val;});
 
+	// Flash up movie name as it is kept
+	// Get movie name, x val from movie
+	mov_data = current_mov.data()[0].info;
+	// Get existing data of text on screen (in case concurently remove two)
+	text_data = movie_g.selectAll('text.mtext').data();
+	// Add data for new text we want to add
+	text_data.push(mov_data);
+
+	// Re-bind data with new element and add new text animation
+	movie_g.selectAll('text.mtext')
+					 .data(text_data)
+					 .enter()
+					 .append('text')
+					 .text(function(d){return d.title;})
+					 .attr({
+						'class': 'mtext',
+						'x': function(d) {return xScale(d.release);},
+						'y':100,
+						'fill':'green',
+						'fill-opacity':0
+					 })
+						// Rotate text ninety degrees
+					 .attr('transform',function(d,i){
+						return 'rotate(-90,'+d3.select(this).attr("x")+','+d3.select(this).attr("y")+')';})
+					 .transition()
+					 .duration(800)
+					 .attr({
+						'fill-opacity':1,
+						'x':function(d) {return xScale(d.release)+20;}
+					 })
+					 .transition()
+					 .delay(800)
+					 .duration(800)
+					 .attr({
+						'fill-opacity':0,
+						'x': function(d) {return xScale(d.release);}
+					 })
+					 .remove()
+
+
+}
 
 // Removes a bar and text downwards when movie culled
 function remove_movie_bar(remove_val) {
 	current_mov = movie_g.selectAll('rect.mrect')
 									.filter(function(d){return d.info.m_id==remove_val;});
-	console.log('Size of current_mov: ', current_mov.length);
+
 	// Flash up movie name as it dissapears
 	// Get movie name, x val from movie
 	mov_data = current_mov.data()[0].info;
