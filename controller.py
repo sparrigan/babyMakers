@@ -41,7 +41,12 @@ def get_movie_ids(json_vals):
 		if ((len(movie['title'])>0) & (isInt_str(movie['id'])) & (isInt_str(movie['release_date'][:4]))):
 			# REMOVE THIS WHEN UPDATE DATABASE!?!?!?
 			if (int(movie['release_date'][:4]) <= 2010):
-				ret_list.append({'info': {'title': movie['title'], 'm_id': movie['id'], 'release': int(movie['release_date'][:4])}})
+				mov_inf = {'info': {'title': movie['title'], 'm_id': movie['id'], 'release': int(movie['release_date'][:4]), 'poster': None}}
+				# Add on poster_path if it exists otherwise leave as None
+				if ('poster_path' in movie):
+					if (movie['poster_path'] and (len(movie['poster_path'])>0)):
+						mov_inf['info']['poster'] = movie['poster_path']
+				ret_list.append(mov_inf)
 	return ret_list
 
 
@@ -78,18 +83,23 @@ def remove_repeats(movie_dict):
 def get_movieapi_results(full_name):
 	"""Takes full name string (not URL encoded) and returns dict of movies"""
 	# Convert name to URL encoded string
-	print full_name
+	# print full_name
 	full_name = quote(full_name)
-	print full_name
+	# print full_name
 	name_url = "http://api.themoviedb.org/3/search/person?&api_key="+API_KEY+"&query=%s" %full_name
 	print name_url
 	response = urllib2.urlopen(name_url)
 	data = json.load(response)
 	actor_id = data['results'][0]['id']
-	print actor_id
+	profile_url = None
+	# Assign profile pic url if it exists
+	if ('profile_path' in data['results'][0]):
+		if data['results'][0]['profile_path']:
+			profile_url = data['results'][0]['profile_path']
+	# print actor_id
 	query = 'movie?with_cast=%i' %(actor_id)
 	url = base_url + 'discover/' + query + "&api_key=" + API_KEY
-	print url
+	# print url
 	# Response for query for actors films will contain multiple pages.
 	# Get first page to find num of pages
 	response2 = urllib2.urlopen(url)
@@ -108,24 +118,12 @@ def get_movieapi_results(full_name):
 		#Combine dict of movies from this page with previously found ones
 		movie_dict += get_movie_ids(current_pg)
 
-
-
-	test = [x['info']['m_id'] for x in movie_dict]
-	from collections import Counter
-	print Counter(test)
-	print len(movie_dict)
 	# Remove repeated entries by movie_id and return
 	# Note: turn this on if dealing with themoviedb bug on ordering searches
 
 	movie_dict = remove_repeats(movie_dict)
 
-	test = [x['info']['m_id'] for x in movie_dict]
-	from collections import Counter
-	print Counter(test)
-	print len(movie_dict)
-
-
-	return movie_dict, actor_id
+	return movie_dict, actor_id, profile_url
 
 # TODO: Way to refactor that reduces the number of movies we query for
 # more detailed information?
@@ -243,8 +241,8 @@ def get_d3_data(name, sex, start_yr):
 
 @application.route('/get_movie_data/<f_name>/<l_name>', methods=['GET', 'POST'])
 def get_movie_data(f_name, l_name):
-	movie_dict, actor_id = get_movieapi_results(f_name+" "+l_name)
-	json = {'results': movie_dict, 'actor_id': actor_id}
+	movie_dict, actor_id, profile_url = get_movieapi_results(f_name+" "+l_name)
+	json = {'results': movie_dict, 'actor_id': actor_id, 'profile_url': profile_url}
 	# print json['results']
 	return jsonify(json)
 

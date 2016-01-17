@@ -38,7 +38,11 @@ $('.ui.dropdown')
 
 <script type="text/javascript">
 
-// TODO: Jane and Laura seem to cause promise exceptions.
+// TODO: Scrape this for actor/actress names to consider: http://www.imdb.com/search/name?gender=male,female
+// TODO: Use themoviedb api to check whether they have a first film before 2005, and discard if so
+// TODO: Use googl trends API to get popularity data: http://www.google.com/trends/fetchComponent?hl=en-US&q=Michael%20Fassbender&cid=TIMESERIES_GRAPH_0&export=3
+// TODO: Get remainder of data for NN from themoviedb
+// TODO: Train NN
 
 //Global vars
 var svg;
@@ -55,6 +59,7 @@ var w = w_total - margin.left - margin.right,
 // Resolved promise to chain off for queueing movie rect updates
 var update_rect_sequence = Promise.resolve();
 var start_yr = 1930;
+var profile_url;
 
 
 //SVG container
@@ -129,13 +134,7 @@ var setup_plot =  function(dataset) {
 }
 
 
-// TODO: URL construct for movie posters:
-// http://image.tmdb.org/t/p/w92/jojz3Yw5tEqtILcqbEsO0GLEIJm.jpg
-// Find movies associated with actor/actress
-// act_name = "Humphrey Bogart";
-// Get movie data (currently defaults to server-set name)
-// TODO: Have use user-entered name
-// TODO: Have suggest possibilities on multiple returns
+
 
 
 // Function launched when submit button clicked
@@ -146,13 +145,13 @@ function submitClick(event) {
 	// Get first and last names from string
 	name_split = new_name.split(" ");
 	first_name = name_split[0];
-	console.log(first_name);
+	// console.log(first_name);
 	last_name = name_split[1];
 	url = "/get_d3_data/" + first_name + "/" + new_sex + "/" + start_yr;
 	// Update rects with name birth values
 	d3.json(url , function(json) {
 		// Extract data from json dict into a JS array of values
-		var dvals = Object.keys(json).map(function(k) { return json[k]});
+		var dvals = Object.keys(json).map(function(k) {return json[k]});
 		// Setup plot with this data
 		update_rects(dvals);
 	});
@@ -162,11 +161,7 @@ function submitClick(event) {
 		// Extract list of objects from json wrapper
 		movie_data = json.results;
 		actor_id = json.actor_id;
-
-		aa = movie_data.map(function(d){return d.info.m_id;});
-		var counts = {};
-		aa.forEach(function(x) { counts[x] = (counts[x] || 0)+1; });
-		console.log(counts);
+		profile_url = json.profile_url;
 
 		//Plot the movie_data
 		plot_movie_points(movie_data, actor_id);
@@ -229,6 +224,8 @@ function plot_movie_points(movie_json, actor_id) {
 
 };
 
+
+
 // Return promise for checking whether star features in movie or not
 function cast_check_promise(actor_id, movie_id) {
 	return new Promise(function(resolve, reject) {
@@ -263,7 +260,7 @@ function score_check_promise(movie_id) {
 			if (error) {
 				reject(Error(error.statusText));
 			} else {
-				console.log('RETURNING MOVIE SCORE, ', movie_id);
+				// console.log('RETURNING MOVIE SCORE, ', movie_id);
 					// Pass back result and movie_id
 					resolve([result, movie_id]);
 			}
@@ -299,10 +296,6 @@ function new_scored_movie(movie_id, score_data) {
 	// Get the movie we want to update class and data of:
 	var update_movie = movie_g.selectAll('rect.mrect')
 				 .filter(function(d) {return d.info.m_id == movie_id;});
-
-	if (update_movie.data().length > 1) {console.log("!!!!!DOUBLE MOVIE!!!!!");}
-
-	console.log('new_scored_movie for movie: ', movie_id, ' with pop: ', score_data.pop);
 	// Add feature values to the movies d3 __data__ attribute (so we can scale
 	// them as new max/min features come in from subsequent movie api calls)
 	// Add raw and scaled value (initially same)
@@ -312,11 +305,6 @@ function new_scored_movie(movie_id, score_data) {
 	update_movie.data()[0].feat_raw.vote = score_data.vote;
 	update_movie.data()[0].feat_scaled.pop = score_data.pop;
 	update_movie.data()[0].feat_scaled.vote = score_data.vote;
-
-	console.log('now have actually assigned a value of ',
-				update_movie.data()[0].feat_raw.pop,
-				' to feat_raw.pop, and ', 	update_movie.data()[0].feat_scaled.pop,
-			' to feat_scaled.pop');
 
 	// Note: Might be crucial that we do this AFTER above???
 	// Add class 'scored' so can search for rects that have been updated
@@ -568,6 +556,7 @@ function check_scores(starring_movs) {
 					.each("end", function() {
 						// Colour remaining rects black when prev transition finished
 						movie_g.selectAll('rect.mrect.scored')
+							.on("mouseover", movie_name_fn)
 							.transition()
 							.duration(900)
 							.attr({'fill': 'black'});
@@ -581,7 +570,104 @@ function check_scores(starring_movs) {
 	});
 }
 
+function movie_name_fn(d) {
+	// Number of movies:
+	if ('multi_data' in d) {
+		num_mov = d.multi_data.length;
+		mov_dat = d.multi_data;
+	} else {
+		num_mov = 1;
+		mov_dat = [d];
+	}
 
+	// Add group of correct size
+
+	img_base_url = "http://image.tmdb.org/t/p/w92";
+
+	info_g = svg.append('g')
+		.attr({'class': 'info'+String(d.release)})
+		// PUT coordinates here using translate
+	// Now add further g's inside for each movie at necessary locations
+	info_g.selectAll('image')
+				.data(mov_dat)
+				.enter()
+				.append('image')
+				.attr({
+					'xlink:href': function(d) {
+						if (d['info']['poster']) {
+							return img_base_url+String(d['info']['poster']);
+						} else {
+							return img_base_url+String(profile_url);
+						}
+					},
+					'x': function(d,i) {return i*92-50;},
+					'y': 0,
+					'width': 92,
+					'height': 138,
+					'opacity': 0
+				})
+				.transition()
+				.delay(function(d,i) {return i*200})
+				.duration(400)
+				.attr({
+					'x': function(d,i) {return i*92;},
+					'opacity': 1
+				})
+	// Add text under movie images
+				.each(function(d,i) {
+					title = d.info.title
+					info_g
+								.append('text')
+								.text(title)
+								.attr({
+									'x': i*92-50,
+									'y': 160,
+									'width': 92,
+									'height':20,
+									'fill': 'black',
+									'fill-opacity': 0
+								})
+								.transition()
+								.delay(function(d,i) {return i*200})
+								.duration(400)
+								.attr({
+									'x': i*92,
+									'fill-opacity': 1
+								})
+				})
+	// Add mouseout event for removing pics when leave
+	current_yr = d.info.release;
+	movie_g.selectAll('rect.mrect.scored')
+		.filter(function(d) {return d.info.release == current_yr})
+		.on("mouseout", function(d){
+			info_g.selectAll('text')
+				.transition()
+				.delay(500)
+				.duration(800)
+				.attr({'fill-opacity': 0})
+				.remove();
+			info_g.selectAll('image')
+				.transition()
+				.delay(500)
+				.duration(800)
+				.attr({'opacity': 0})
+				.remove();
+
+		})
+
+
+}
+
+
+
+// 92 x 138
+// TODO: URL construct for movie posters:
+// http://image.tmdb.org/t/p/w92/jojz3Yw5tEqtILcqbEsO0GLEIJm.jpg
+// Find movies associated with actor/actress
+// act_name = "Humphrey Bogart";
+// Get movie data (currently defaults to server-set name)
+// TODO: Have use user-entered name
+// TODO: Have suggest possibilities on multiple returns
 
 function sort_scores() {
 	// Returns years sorted by scores, descending
