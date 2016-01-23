@@ -49,10 +49,12 @@ var svg;
 var movie_g;
 var yScale;
 var xScale;
+var xAxis;
 var w_total = 1000;
 var h_total = 250;
 var barpadding = 1;
 var padding = 20;
+var pad_ratio = 0.05
 var margin = {top: 20, right: 20, bottom: 20, left: 20};
 var w = w_total - margin.left - margin.right,
 		h = h_total - margin.top - margin.bottom;
@@ -75,7 +77,7 @@ svg = d3.select('.plot_area')
 url = "/get_d3_data/Nicholas/M/" + start_yr;
 d3.json(url, function(json) {
 	// Extract data from json dict into a JS array of values
-	var dvals = Object.keys(json).map(function(k) { return json[k]});
+	var dvals = Object.keys(json).map(function(k) { return [parseInt(k), json[k]]; });
 	// Setup plot with this data
 	setup_plot(dvals);
 });
@@ -85,9 +87,12 @@ var setup_plot =  function(dataset) {
 	//Create scales - build range as years.
 	xScale = d3.scale.ordinal()
 								 .domain(d3.range(1930,2011))
-								 .rangeBands([0,w],0.05);
+								 .rangeBands([0,w], pad_ratio);
 	yScale = d3.scale.linear()
-								 .domain([d3.min(dataset), d3.max(dataset)])
+								 .domain([
+									 d3.min(dataset, function(d){return d[1];}),
+								 	 d3.max(dataset, function(d){return d[1];})
+								 ])
 								 .range([h,0]);
 	// Create rects
 	var rects =
@@ -98,17 +103,17 @@ var setup_plot =  function(dataset) {
 			 .attr( {
 				 'class': 'barRect',
 				//  Note that we here rescale our index to proper year
-				 'x': function(d,i) {return xScale(i+start_yr);},
-				 'y': function(d) {return yScale(d);},
+				 'x': function(d,i) {return xScale(d[0]);},
+				 'y': function(d) {return yScale(d[1]);},
 				 'width': xScale.rangeBand(),
-				 'height': function(d) {return h-yScale(d);},
+				 'height': function(d) {return h-yScale(d[1]);},
 				 'fill': function(d) {
 					 return 'rgb(200,0,'
-					 +Math.floor((1-yScale(d)/h)*255)
+					 +Math.floor((1-yScale(d[1])/h)*255)
 					 +')';}
 					})
 	// x Axis
-	var xAxis = d3.svg.axis()
+	xAxis = d3.svg.axis()
 							.scale(xScale)
 							.orient('bottom')
 							.tickValues(d3.range(start_yr,2011,20));
@@ -151,7 +156,7 @@ function submitClick(event) {
 	// Update rects with name birth values
 	d3.json(url , function(json) {
 		// Extract data from json dict into a JS array of values
-		var dvals = Object.keys(json).map(function(k) {return json[k]});
+		var dvals = Object.keys(json).map(function(k) { return [parseInt(k), json[k]]; });
 		// Setup plot with this data
 		update_rects(dvals);
 	});
@@ -175,7 +180,7 @@ function plot_movie_points(movie_json, actor_id) {
 	// Make group in which to store movies
 	if (movie_g) {
 		movie_g
-			.transition()
+			.transition("remove_old_movies")
 			.duration(100)
 			.attr({"transform": "translate(0, 600)"})
 			.remove();
@@ -201,25 +206,9 @@ function plot_movie_points(movie_json, actor_id) {
 				 .delay(function(d,i){return (i-1)*10;})
 				 .attr({'y': function(d) {return 100;}});
 
+	// Change scale to move viewport here
 
-	// Add text for each movie
-	// TODO: Make this actually useful (rollover zoom etc...)
 
-	// var movie_text = movie_g.selectAll('text')
-	// 			.data(movie_json)
-	// 			.enter()
-	// 			.append('text')
-	// 			.text(function(d) {return d.info.title;})
-	// 			.attr({
-	// 				'class': 'mtext',
-	// 				'x': function(d) {return xScale(d.info.release)+xScale.rangeBand()/4;},
-	// 				'y': h-100
-	// 			})
-	// 			// Rotation of text: Crucial - give center of rotation too!
-	// 			.attr('transform',function(d,i){
-	// 				return 'rotate(-90,'+d3.select(this).attr("x")+','+d3.select(this).attr("y")+')';})
-
-		// Begin requesting info from server to cull unimportant movies
 		movie_cull(movie_json, actor_id);
 
 };
@@ -362,6 +351,7 @@ function rescale_movies(score_data) {
 
 
 var i = 0;
+var transitions = {}
 // Adjust movie rect according to scores as they're RECEIVED
 // TODO: This function doesn't actually use the parameter passed to it! remove
 function adjust_rects_score(score) { //!!!! Removed mov_id as paramter
@@ -377,21 +367,22 @@ function adjust_rects_score(score) { //!!!! Removed mov_id as paramter
 	// CHANGED TO ZERO
 	scoreScale.domain([0, max_score]);
 	// Adjust rects of all scored movies
-	// NOTE NOTE NOTE: This could be problematic, as it appears that if a
-	// transition doesn't have time to finish before another one tries to 'write
-	// over it' then it can stop the change happening at all. To try and overcome
-	// this if necessary, can either use  .each("end", callback) to chain
-	// transitions, or can define a variable for selection and chain onto that (?)
+	// NOTE: Naming transition stops conflicts with other transitions but this
+	// means that subsequent adjustments *here* can overwrite previous ones, but
+	// that's ok since they only adjust visible y/height and not data we rely on
 	movie_g.selectAll('rect.mrect.scored')
-				//  .filter(function(d) {return d.values[0] == mov_id;})
-				 .transition()
-				 .duration(100)
+				 .transition("adjust_scores")
+				 .duration(200)
 				 .attr({
 					 'fill': cols[i],
-					 'y': function(d) {return scoreScale(d.score);},
-					 'height': function(d) {return h-scoreScale(d.score);}
+					//  Only reduce to minimum of 10px
+					// 'y': function(d) {return scoreScale(d.score);}
+					 'y': function(d) {var new_height = d3.min([scoreScale(d.score),h-10]); return new_height;},
+					 'height': function(d) {var new_height = d3.min([scoreScale(d.score),h-10]); return h-new_height;}
 				 });
 }
+
+
 
 function year_aggregator() {
 	// Go through movies and if in same year then add scores and place new
@@ -434,7 +425,7 @@ function year_aggregator() {
 							.append('rect')
 							.attr({
 								'class': 'mrect scored multi',
-								// 'fill': 'blue',
+								// 'fill': 'pink',
 								// 'y': 0,
 								// 'height': 200,
 								'x': function(d) {return xScale(years_unique[yr])+xScale.rangeBand()/4;},
@@ -443,8 +434,14 @@ function year_aggregator() {
 							})
 
 			// Remove old rects
-			yr_movs.transition().duration(100).attr({'y':-400}).remove();
+			// yr_movs.remove();
+			// Name the transition in order to allow it to run concurrently.
+			yr_movs.transition("remove_not_top_five")
+						.duration(100)
+						.attr({'y':-400})
+						.remove();
 			// Update rects y values due to new rescaled scores
+
 			adjust_rects_score(max_comb_score);
 
 		}
@@ -540,32 +537,52 @@ function check_scores(starring_movs) {
 			movie_g.selectAll('rect.mrect.scored')
 				.attr({'fill':'green'});
 
-			// Now select only the top five scoring movies
+			// Now select only the top five scoring years
 			var yr_sort = sort_scores();
 			// Identify all except top 5 (for removal)
 			var bottom = yr_sort.slice(5,yr_sort.length)
-			// Remove all but top five years, and colour remaining green
-			movie_g.selectAll('rect.mrect.scored')
-					.filter(function(d) {
-						var crnt_yr = String(d.info.release);
-						return (bottom.indexOf(crnt_yr) > -1);
-					})
-					.transition()
-					.duration(1000)
-					.attr({'y':-400})
-					.each("end", function() {
-						// Colour remaining rects black when prev transition finished
-						movie_g.selectAll('rect.mrect.scored')
-							.on("mouseover", movie_name_fn)
-							.transition()
-							.duration(900)
-							.attr({'fill': 'black'});
-					})
-					.remove();
+			console.log('GOT HERE....');
+			// If extra vals, remove all but top five years, colour remaining black
+			// and add listener for showing movies each year
+			if (bottom.length>0) {
+				movie_g.selectAll('rect.mrect.scored')
+						.filter(function(d) {
+							var crnt_yr = String(d.info.release);
+							return (bottom.indexOf(crnt_yr) > -1);
+						})
+						.transition()
+						.duration(1000)
+						.attr({'y':-400})
+						.each("end", function() {
+							// Colour remaining rects black when prev transition finished
+							movie_g.selectAll('rect.mrect.scored')
+								.on("mouseover", movie_name_fn)
+								.transition()
+								.duration(900)
+								.attr({'fill': 'black'});
+						})
+						.remove();
+				} else {
+					// If none to remove then just colour black & add listener
+					movie_g.selectAll('rect.mrect.scored')
+						.on("mouseover", movie_name_fn)
+						.transition()
+						.duration(900)
+						.attr({'fill': 'black'});
 
-			// Colour surviving rects green
+				}
+
+				// Adjust any rects that are too small to see to be a minimum value of 10
+				// movie_g.selectAll('rect.mrect.scored')
+				// 			.filter(function(d) {return (this.getBBox().height < 10)})
+				// 			.attr({
+				// 				'y': function(d) {return scoreScale(10);},
+				// 				'height': function(d) {return h-scoreScale(10);}
+				// 			});
 
 
+		}).then(function() {
+			// NEXT STUFF GOES HERE!!!!
 		});
 	});
 }
@@ -806,7 +823,7 @@ function remove_movie_bar(remove_val) {
 function update_rects(new_dataset) {
 	// Update yscale
 	yScale = d3.scale.linear()
-								 .domain([0, d3.max(new_dataset)])
+								 .domain([0, d3.max(new_dataset, function(d){return d[1];})])
 								 .range([h,0]);
 	//Update rects
 	svg.selectAll('rect.barRect')
@@ -815,10 +832,10 @@ function update_rects(new_dataset) {
 		 .delay(function(d,i) {return i/131 * 500;})
 		 .duration(950)
 		 .attr({
-			 'y': function(d) {return yScale(d);},
-			 'height': function(d) {return h-yScale(d);},
+			 'y': function(d) {return yScale(d[1]);},
+			 'height': function(d) {return h-yScale(d[1]);},
 			 'fill': function(d) {
-								return 'rgb(200,0,'+Math.floor((1-yScale(d)/h)*255) +')';
+								return 'rgb(200,0,'+Math.floor((1-yScale(d[1])/h)*255) +')';
 								}
 			});
 }

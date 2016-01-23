@@ -1,7 +1,7 @@
 # Imports needed
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, func, inspect
 from sqlalchemy.orm import sessionmaker
 import pandas as pd
 import numpy as np
@@ -31,6 +31,26 @@ year_vals = np.arange(1880,2011)
 #     """Yield successive n-sized chunks from l."""
 #     for i in xrange(0, len(l), n):
 #         yield l[i:i+n]
+
+def _update_total_births():
+	"""Reads DB to find total births each year and updates Total tables"""
+	tabs = [[Male, TotalBirthsMale],[Female, TotalBirthsFemale]]
+	for tab in tabs:
+		mapper = inspect(tab[0])
+		# Iterate over columns of table (note: iterator returns object, key
+		# property gives name of column)
+		for col in mapper.attrs:
+			# Don't include name column in sum!
+			if (col.key != 'name'):
+				# Dynamically call the method on table class corresponding to col
+				qry = session.query(func.sum(getattr(tab[0], col.key))).first()
+				# Insert into TotalBirthsMale table
+				yr = int(col.key[3:])
+				session.add(tab[1](year=yr, births=int(qry[0])))
+				# la.append(int(qry[0]))
+		session.commit()
+
+
 
 def _csv_df(path):
 	"""Import CSV to dataframe in correct format, including filling NAs
@@ -160,6 +180,19 @@ def get_name_data(name, sex, start_yr, ret_type = 'json'):
 	#q_dict = qry.first().__dict__
 	#[q_dict['col'+str(yr)] for yr in range(1880,2011)]
 
+
+def get_total_births(sex):
+	results_dict = {}
+	# Query relevant ORM class for M/F total births
+	if sex in ['m', 'M', 'male', 'Male']:
+		qry = session.query(TotalBirthsMale)
+	elif sex in ['f', 'F', 'female', 'Female']:
+		qry = session.query(TotalBirthsFemale)
+	# Unpack results into a dict
+	for vals in qry:
+		results_dict[vals.year] = vals.births
+	return results_dict
+
 #Create classes for male and female tables
 col_dic_m = {'__tablename__': 'male', 'name': Column('name', String(32), primary_key=True)}
 col_dic_f = {'__tablename__': 'female', 'name': Column('name', String(32), primary_key=True)}
@@ -169,6 +202,20 @@ for year in year_vals:
 Male = type('Male', (Base,), col_dic_m)
 Female = type('Female', (Base,), col_dic_f)
 # TODO: Could optimize by only creating m/f class when m/f requested
+
+# Create table for storing total births each year for M/F
+class TotalBirthsMale(Base):
+	__tablename__ = 'total_births_male'
+	year = Column(Integer, primary_key=True)
+	births = Column(Integer)
+
+class TotalBirthsFemale(Base):
+	__tablename__ = 'total_births_female'
+	year = Column(Integer, primary_key=True)
+	births = Column(Integer)
+
+
+
 
 
 if __name__ == '__main__':
