@@ -135,7 +135,6 @@ def get_name_data(name, sex, start_yr, ret_type = 'json'):
 			#Remove non-column entries that might be passed by SQLA
 			#And remove col prefix from others
 			for keyval in q_dict.keys():
-				print keyval
 				if ((keyval[:3] != 'col') or (keyval[3:]<start_yr)):
 					q_dict.pop(keyval)
 				else:

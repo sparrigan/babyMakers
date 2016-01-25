@@ -3,10 +3,13 @@ from flask import Flask
 from flask import render_template, request, redirect, url_for, flash, jsonify
 import urllib2
 from urllib import quote
-import pandas
+from math import sqrt
+import pandas as pd
+from scipy import ndimage as nd
 import json
 import time
 import numpy as np
+from numpy.random import random_sample
 import os
 
 from numpy import random
@@ -19,6 +22,68 @@ application = Flask(__name__)
 # app.config.from_envvar('BABY_MAKERS_SETTINGS', silent=True)
 # API_KEY = app.config['API_KEY']
 API_KEY = os.environ['API_KEY']
+
+
+def get_celeb_score(data, celeb_years, alpha=0.95):
+	"""Takes a dict of year:births *for years wanted*, and a list of movie years within
+	this range"""
+	# NOTE: Check that we have zeros where we should in babyname data
+	# NOTE: Are assuming dict of years:births over range we want to consider
+	# Convert birth data dict to a pandas Series
+	birth_data = pd.Series(data)
+	birth_data.sort(inplace=True)
+	all_yrs = birth_data.index
+	# Differentiate series
+	name_diff = pd.Series(np.append(np.diff(birth_data.values),0))
+	name_diff.index = all_yrs
+	# KDE on values
+	kde_vals = nd.filters.gaussian_filter(birth_data.values, sigma=2)
+	# Differentiate values smoothed by kde
+	kde_diff = pd.Series(np.append(np.diff(kde_vals),0))
+	kde_diff.index = all_yrs
+	# Get celebs score
+	celeb_score = calc_celeb_score(celeb_years, name_diff, kde_diff)
+	# Get values for random distribution
+	mc_samp = []
+	min_yr = min(all_yrs)
+	max_yr = max(all_yrs)
+	for i in range(10000):
+		rand_yrs = get_rand_years(5,min_yr,max_yr)
+		mc_samp.append(calc_celeb_score(rand_yrs,name_diff, kde_diff))
+	# Generate histogram data:
+	wts = np.ones_like(mc_samp)/float(len(mc_samp))
+	hist_vals, hist_bins = np.histogram(mc_samp, bins=int(sqrt(len(mc_samp))), weights=wts)
+	# Get list of hist vals within given significance
+	percentiles = get_percentile_points(hist_vals, hist_bins, alpha)
+	# Return celebrity score, hist_vals, and percentile data
+	return celeb_score, hist_vals.tolist(), hist_bins.tolist(), percentiles.value.tolist()
+
+def calc_celeb_score(celeb_yrs, name_diff, smooth_diff):
+	"""Rule for scoring a celebrities years based on derivatives"""
+	all_yrs = name_diff.index
+	scores_next = [name_diff[yr] - smooth_diff[yr] for yr in celeb_yrs]
+	scores_current = [name_diff[x-1] - smooth_diff[x-1] if x in all_yrs+1 else 0 for x in celeb_yrs]
+	return max(sum(scores_next), sum(scores_current))
+
+def get_rand_years(n, min_yr, max_yr):
+	"""Return n random years from the range [min_year, max_year]"""
+	rnd_yr_list = [int(np.ceil((max_yr-min_yr)*random_sample() + min_yr)) \
+					for a in range(0,n)]
+	return np.array(rnd_yr_list)
+
+def get_percentile_points(hist_vals, hist_bins, percentile_value):
+    """Return dataframe of histogram points that fall within given percentile with columns 'value' and 'weight'
+    hist_vals: Result of assignment to a plt.hist instance
+    percential_value: The percentile to find"""
+    #Create Series of bin values and weights from the histogram (so can sort and retain indices)
+    hist_df = pd.DataFrame(zip(hist_bins, hist_vals), columns=['value', 'weight'])
+    #Sort the histogram values by weight
+    hist_df_sort = hist_df.sort(columns='weight', ascending=False)
+    #Get cumulative sum of weights
+    hist_df_sum = hist_df_sort.cumsum()
+    #Get all values for which cumsum falls below percentile value required
+    percentile_vals = hist_df_sum[hist_df_sum['weight'] < percentile_value]
+    return hist_df.ix[percentile_vals.index]
 
 
 def check_str(name):
@@ -233,11 +298,19 @@ def return_list():
 
 @application.route('/get_d3_data/<name>/<sex>/<start_yr>', methods=['GET', 'POST'])
 def get_d3_data(name, sex, start_yr):
+	# Get raw name data from database
 	data_list = model.get_name_data(name, sex, start_yr, 'python_dict')
+	# Get total birth data to normalise
+	totals = model.get_total_births(sex)
+
+	# dict comprehension
+	normed_dict = {yr:(data_list[yr]/float(totals[int(yr)])) for yr in data_list.keys()}
+
 	# TODO: Note that this does not return a second error parameter,
 	# which d3.json function expects normally (eg: see use of d3.json here:
 	# http://www.brettdangerfield.com/post/realtime_data_tag_cloud/)
-	return jsonify(**data_list)
+	return jsonify(**normed_dict)
+	# return jsonify(**data_list)
 
 @application.route('/get_movie_data/<f_name>/<l_name>', methods=['GET', 'POST'])
 def get_movie_data(f_name, l_name):
@@ -280,8 +353,6 @@ def movie_score(movie_id):
 	time.sleep(0.2)
 	return jsonify(outcome)
 
-
-
 # TODO: Create route for getting data on user input
 # Only need route for talking to my own backend
 @application.route('/get_data', methods=["GET", "POST"])
@@ -292,6 +363,16 @@ def get_data():
 	data_list = model.get_name_data(name, 'F', 'python')
 	return render_template('data_viz.html', data_list=data_list)
 
+
+@application.route('/get_celeb_score', methods=["GET", "POST"])
+def celeb_score_route():
+	# Use get_json to return dict from json
+	celeb_json = request.get_json(force=True)
+	# Put births into dict
+	births_dict = {year:births for year,births in celeb_json['baby_vals']}
+	score, hv, hb, perc = get_celeb_score(births_dict, celeb_json['celeb_yrs'])
+	#Extract posted data from json
+	return jsonify({'celeb_score': score, 'hist_vals':hv, 'hist_bins':hb, 'perc':perc})
 
 if __name__ == '__main__':
 	application.debug = True
