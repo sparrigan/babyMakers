@@ -20,7 +20,7 @@
 	  Submit
 	</button>
 </center>
-
+<div class = "score_text"></div>
 <div class="row">
 <div class="plot_area"></div>
 </div>
@@ -64,6 +64,7 @@ var start_yr = 1930;
 var profile_url;
 var min_movie_yr;
 var max_movie_yr;
+var celeb_name;
 
 
 //SVG container
@@ -73,6 +74,12 @@ svg = d3.select('.plot_area')
 						.attr('height', h + margin.top + margin.bottom)
 						.append('g')
 						.attr('transform', 'translate('+margin.left+','+margin.top+')');
+
+// SVG container for score text
+text_svg = d3.selectAll('.score_text')
+	.append('svg')
+	.attr('width', 800)
+	.attr('height', 0)
 
 // Initial plot before choice
 //TODO: Replace this with animation or existing actor values
@@ -146,6 +153,7 @@ var setup_plot =  function(dataset) {
 
 // Function launched when submit button clicked
 function submitClick(event) {
+
 	// Get name entered in form
 	new_name = document.getElementById('name_val').value;
 	new_sex = document.getElementById('sex_val').innerText;
@@ -155,6 +163,8 @@ function submitClick(event) {
 	// console.log(first_name);
 	last_name = name_split[1];
 	url = "/get_d3_data/" + first_name + "/" + new_sex + "/" + start_yr;
+	// Save current celeb name to global:
+	celeb_name = first_name + " " + last_name;
 	// Update rects with name birth values
 	d3.json(url , function(json) {
 		// Extract data from json dict into a JS array of values
@@ -581,7 +591,7 @@ function check_scores(starring_movs) {
 						.transition("fade_to_black")
 						.duration(900)
 						.attr({'fill': 'black'})
-						.each("end", get_celeb_score);
+						.call(endall, get_celeb_score);
 
 				}
 
@@ -623,10 +633,64 @@ function get_celeb_score() {
 	// TODO: Need to make sure that only send 5 (or whatever the top_number is)
 	// so perhaps check length of celeb_yrs against top_number
 	d3.json("/get_celeb_score").post(celeb_json, test_callback);
+	// Expand text svg
+	text_svg
+	.transition()
+	.duration(1000)
+	.attr({'height':100})
+	// Add waiting text
+	// TODO: Put semantic loading anim too
+	.call(endall, function(){
+		text_svg.append('text')
+		.text('Calculating score for ' + celeb_name + ' ...')
+		.attr({
+			'x': 100,
+			'y': -10,
+			'width': 92,
+			'height':20,
+			'fill': 'black',
+			'font-size': 20
+			// 'fill-opacity': 0
+		})
+		.transition("tran_2")
+		.duration(300)
+		.attr('y',50);
+	});
 }
 
-function test_callback(error, data) {
-	console.log(data);
+function test_callback(error, score_data) {
+	console.log(score_data);
+	// Add text elements with score and confidence
+	// Round values to required precision
+	score = Math.round(score_data['celeb_score']*100000)/100000.0
+	pval = Math.round(score_data['celeb_pval']*100)/100.0
+	hyp_test = ['Score: '+score,'p-value: '+pval]
+	text_svg
+			.selectAll('text')
+			.transition("remove_holder")
+			.duration(300)
+			.attr('y',-50)
+			.remove()
+			.call(endall, function() {
+				text_svg.selectAll('text')
+				.data(hyp_test)
+				.enter()
+				.append('text')
+				.text(function(d){return d;})
+				.attr({
+					'x': function(d,i) {return (200+(i*300));},
+					'y': 500,
+					'width': 92,
+					'height':20,
+					'fill': 'black',
+					'font-size': 25
+					// 'fill-opacity': 0
+				})
+				.transition("add_score")
+				.duration(1000)
+				.attr('y',50);
+			});
+
 }
 
 

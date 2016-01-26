@@ -54,9 +54,9 @@ def get_celeb_score(data, celeb_years, alpha=0.95):
 	wts = np.ones_like(mc_samp)/float(len(mc_samp))
 	hist_vals, hist_bins = np.histogram(mc_samp, bins=int(sqrt(len(mc_samp))), weights=wts)
 	# Get list of hist vals within given significance
-	percentiles = get_percentile_points(hist_vals, hist_bins, alpha)
+	celeb_pval, percentiles = get_percentile_points(hist_vals, hist_bins, alpha, celeb_score=celeb_score)
 	# Return celebrity score, hist_vals, and percentile data
-	return celeb_score, hist_vals.tolist(), hist_bins.tolist(), percentiles.value.tolist()
+	return celeb_pval, celeb_score, hist_vals.tolist(), hist_bins.tolist(), percentiles.value.tolist()
 
 def calc_celeb_score(celeb_yrs, name_diff, smooth_diff):
 	"""Rule for scoring a celebrities years based on derivatives"""
@@ -71,20 +71,32 @@ def get_rand_years(n, min_yr, max_yr):
 					for a in range(0,n)]
 	return np.array(rnd_yr_list)
 
-def get_percentile_points(hist_vals, hist_bins, percentile_value):
-    """Return dataframe of histogram points that fall within given percentile with columns 'value' and 'weight'
-    hist_vals: Result of assignment to a plt.hist instance
-    percential_value: The percentile to find"""
-    #Create Series of bin values and weights from the histogram (so can sort and retain indices)
-    hist_df = pd.DataFrame(zip(hist_bins, hist_vals), columns=['value', 'weight'])
-    #Sort the histogram values by weight
-    hist_df_sort = hist_df.sort(columns='weight', ascending=False)
-    #Get cumulative sum of weights
-    hist_df_sum = hist_df_sort.cumsum()
-    #Get all values for which cumsum falls below percentile value required
-    percentile_vals = hist_df_sum[hist_df_sum['weight'] < percentile_value]
-    return hist_df.ix[percentile_vals.index]
-
+def get_percentile_points(hist_vals, hist_bins, percentile_value, celeb_score=None):
+	"""Return dataframe of histogram points that fall within given percentile
+	with columns 'value' and 'weight'. If passed a celebrity score, also returns
+	p-value of that particular celebrities score.
+	hist_vals: Result of assignment to a plt.hist instance
+	percential_value: The percentile to find"""
+	# Create Series of bin values and weights from the histogram (so can sort and retain indices)
+	hist_df = pd.DataFrame(zip(hist_bins, hist_vals), columns=['value', 'weight'])
+	# Sort the histogram values by weight
+	hist_df_sort = hist_df.sort(columns='weight', ascending=False)
+	# Get cumulative sum of weights
+	hist_df_sort['cumsum'] = hist_df_sort['weight'].cumsum()
+	# Get all values for which cumsum falls below percentile value required
+	percentile_vals = hist_df_sort['cumsum'][hist_df_sort['weight'] < percentile_value]
+	# If passed celebrity score, then also work out and return it's p-value
+	if celeb_score:
+		sortbyval = hist_df_sort.sort('value')
+		max_vals = sortbyval['value'] >= celeb_score
+		min_vals = sortbyval['value'] <= celeb_score
+		max_idx = sortbyval.ix[max_vals, 'value'].idxmin()
+		min_idx = sortbyval.ix[min_vals, 'value'].idxmax()
+		# Take average of elements closest to celeb_score
+		celeb_pval = sortbyval.ix[min_idx:max_idx, 'cumsum'].mean()
+	else:
+		celeb_pval = None
+	return celeb_pval, hist_df.ix[percentile_vals.index]
 
 def check_str(name):
 	#Make sure camel case
@@ -370,9 +382,9 @@ def celeb_score_route():
 	celeb_json = request.get_json(force=True)
 	# Put births into dict
 	births_dict = {year:births for year,births in celeb_json['baby_vals']}
-	score, hv, hb, perc = get_celeb_score(births_dict, celeb_json['celeb_yrs'])
+	celeb_pval, score, hv, hb, perc = get_celeb_score(births_dict, celeb_json['celeb_yrs'])
 	#Extract posted data from json
-	return jsonify({'celeb_score': score, 'hist_vals':hv, 'hist_bins':hb, 'perc':perc})
+	return jsonify({'celeb_pval': celeb_pval, 'celeb_score': score, 'hist_vals':hv, 'hist_bins':hb, 'perc':perc})
 
 if __name__ == '__main__':
 	application.debug = True
