@@ -30,6 +30,11 @@
 			.top-buffer {
 				margin-top: 20px;
 			}
+			.center-justified {
+			  text-align: justify;
+			  margin: 0 auto;
+			  width: 30em;
+			}
 			svg {
 			    display: block;
 			    margin: auto;
@@ -59,7 +64,7 @@
 				<div class='top-buffer'></div>
 				<div class='col-sm-8 col-sm-offset-2 vcenter'>
 				<center>
-					<h4 style='font-size: 18px; text-align: justify; margin: 0 auto'>Which actors/actresses have embedded themselves so deeply in our collective consciousness that we can trace their successes in baby name choices? Celebrodisiac is a tool to help investigate this question. I mean seriously, why else would anyone call a kid Clint? </h4>
+					<h4 style='font-size: 18px; text-align: justify; margin: 0 auto; text-align-last: center;'>Which movie-stars are so embedded in our collective consciousness that we can trace their successes in baby name choices? Celebrodisiac is a tool to help look for these correlations. I mean seriously, why else would anyone call a kid Clint? To learn why I made celebrodisiac, <a href="http://localhost:4000/datascience/python/js/web/celebrodisiac/2016/01/29/celebrodisiac.html">read this colorful blogpost</a>.</h4>
 						<h5>Choose an actor/actress and whether to compare with male or female baby names:</h5>
 				</center>
 			</div>
@@ -70,88 +75,82 @@
 			<div class='top-buffer'></div>
 			<div class='row'>
 				<div class='col-sm-8 col-sm-offset-2'>
-					<h2 style='font-size: 40px'>Why would you make this?</h2>
+					<h1 style='font-size: 40px'>How does it work?</h1>
 				</div>
 			</div>
 			<div class='top-buffer'></div>
 			<div class="row">
 				<div class='col-sm-8 col-sm-offset-2' style='font-size: 16px'>
 					<p>
-						Celebrodisiac is a visualization tool for investigating whether a movie celebries work has influenced the US public’s baby-naming trends. The app retrieves US Census records of babies registered with an actors/actresses first name from a local SQL database, and overlays movie releases found through themoviedb public API.
+						Celebrodisiac is a visualization tool for investigating whether the work of a movie-star has influenced US baby-naming trends. The app retrieves US Census data from a local SQL database, and overlays movie releases found through themoviedb public API. The visualisition uses D3.js.
 					</p>
 					<p>
-						The problem though, is that visual inspection of this overlaid data only allows very rudimentary speculation as to whether the arrival of important works by a movie-star impacted US public’s choice of baby names. Eyeballing the data alone is prone to error and bias, and so celebrodisiac processes the data to try and help us draw conclusions. There are two areas of ambiguity that it addresses: <strong>which years are noteworthy for the celebrity?</strong> (when we might expect changes in baby names) and how can we decide if any <strong>correlation between these years and changes in baby naming are attributable to more than just chance?</strong> Here’s how celebrodisiac approaches these two problems:
+						Visualisation alone is prone to error and bias, and so celebrodisiac uses two server-side algorithms (in python) to processes the data to help us draw conclusions...
+						<ul>
+							<li><strong style='color: purple;'>The golden years algorithm:</strong> Helps determine which years are noteworthy for the celebrity? (when we might expect changes in baby names)</li>
+							<li><strong style='color:red;'>The significance algorithm:</strong> Helps determine whether any apparent correlation between these years and changes in baby naming are attributable to more than just chance.</li>
+						</ul>
+					 For more information on each algorithm, click below...
 					</p>
-					<h3>The golden years</h3>
-					<p>
-						Many Hollywood celebrities have produced many films, spanning decades. If we were free to freely pick any subset of these years for analysis then it would be very easy to trick ourselves into seeing a correlation with baby-naming trends through sub-concious bias. Instead it’s crucial that we develop a rule for deciding on a subset of years that we <strong><em>independently</em></strong> predict to be the celebrities ‘golden years’ when they were most in the public eye, and most likely to have influenced baby-naming trends. Then (and only then!) should we look for correlations with increases in baby-naming. Celebrodisiac selects - at most - five years for each celebrity using the following algorithm
-					</p>
+					<button data-toggle="collapse" data-target="#gold_yrs" class="ui purple button">
+							Golden years algorithm <i class="dropdown icon"></i>
+					</button>
+					<div id="gold_yrs" class="collapse">
+						<div class='top-buffer'></div>
+						<p>
+							Most Hollywood celebrities have produced many films, spanning decades. It’s crucial that we develop a rule for deciding on a subset of years that we <strong><em>independently</em></strong> predict to be the celebrities ‘golden years’ when they were most in the public eye, and most likely to have influenced baby-naming trends. Then (and only then!) should we look for correlations with increases in baby-naming. Celebrodisiac selects - at most - five years for each celebrity using the following algorithm
+						</p>
 
-					<ol>
-						<li>Start with all releases between 1930 and most recent year in US census data.</li>
-						<li>Remove any releases in which celebrity is not credited as being within top 3 cast list by themoviedb API.</li>
-						<li>Score each remaining movie by combining rating and popularity figures available from themoviedb API.</li>
-						<li>Score each year based on the number of movies released that year and their respective scores.</li>
-						<li>Select the top 5 scoring years as the celebrities ‘golden years’.</li>
-					</ol>
+						<ol>
+							<li>Start with all releases between 1930 and most recent year in US census data.</li>
+							<li>Remove any releases in which celebrity is not credited as being within top 3 cast list by themoviedb API.</li>
+							<li>Score each remaining movie by combining rating and popularity figures available from themoviedb API.</li>
+							<li>Score each year based on the number of movies released that year and their respective scores.</li>
+							<li>Select the top 5 scoring years as the celebrities ‘golden years’.</li>
+						</ol>
+						<p>
+						This approach has flaws, sometimes missing movies we instinctively know to be influential. It only considers few features (other important features could be: age of celebrity at movies release, stage of career at release, movie revenue, genre of movies made). Also the algorithm's naïve aggregating of movie scores within a single year can result in many mediocre films out-scoring one very significant release (cf: Leonardo Dicaprio and Titanic).
+					</p>
 					<p>
-					This particular algorithm has many flaws, and will sometimes miss the movies that we instinctively know to be very influential. For one thing, it likely does not consider enough features to make a really good judgement (other important features could be: the age of the celebrity at a movies release, the stage in their career at release, movie revenue, and perhaps even the genre of films they make). Also this algorithms naïve method of aggregating movies within a single year can mean that a year in which a celebrity releases many mediocre films can out-score a year when they made one epic  release (cf: Leonardo Dicaprio and Titanic).
-				</p>
+						This algorithm is currently being updated (hence BETA) with a more feature-rich neural network trained on Google trends data.
+					</p>
+			</div>
+			<br>
+			<div class='top-buffer'></div>
+			<button data-toggle="collapse" data-target="#sig_alg" class="ui red button">
+					Significance algorithm <i class="dropdown icon"></i>
+			</button>
+			<div id="sig_alg" class="collapse">
+				<div class='top-buffer'></div>
 				<p>
-					This algorithm acts as a placeholder whilst a replacement neural network is being develop, to be trained on Google trends data in order to make a more informed ‘golden years’ judgement.
+					Having decided a celebrities most influential years, the significance alogorithm then tries to determine whether those years significantly correlate with relative increases in baby-naming. Unfortunately many standard tools for time-series analysis (eg: cross-correlation functions) aren’t of much use, since we only have one real time-series (baby name data), along with a few discrete events of indeteriminate spacing.
 				</p>
-				<h3>Measuring significance</h3>
+				<h3>Scoring</h3>
 				<p>
-					Having decided the five most influential years for a celebrity, how do we measure whether they correlate with relative increases in baby-naming? Unfortunately many standard tools for time-series analysis (such as cross-correlation functions) aren’t of much use to us here, since we only have one real time-series (the baby name data), along with (up to) five separate discrete events.
-				</p>
-				<p>
-					Currently celebrodisiac generates a rudimentary ‘correlation score’ for each of a celebrities five golden years using the following algorithm:
+					Celebrodisiac currently generates a rudimentary ‘correlation score’ for each of a celebrities golden years as follows:
 				</p>
 				<ol>
-					<li>Take the first derivative of baby-name data to give the rate-of-change of baby-name occurrences around a given year.</li>
-					<li>Produce a kernel density estimation (KDE) of the baby-name time series to remove higher frequency variations from the data (leaving ‘smoothed out’ longer term trends). </li>
-					<li>Take the first derivative of this KDE to produce rates-of-change for the longer term trends.</li>
-					<li>A score is formed for a given golden year by finding the difference between the actual derivative for that year and the derivative of the KDE (showing how the rate of change compares to the background). </li>
-					<li>A similar score is formed for the year following a golden year.</li>
-					<li>The scores for the golden year and subsequent year are combined (this allows for some leading effect of a movies influence, including it’s prolonged effect when released on home media etc…)</li>
+					<li>Take first derivative of baby name time series to yield rate of change for baby-name occurrences about each year.</li>
+					<li>Produce Kernel Density Estimation (KDE) of baby name time series, removing higher frequency variations (leaving ‘smoothed out’ longer term trends). </li>
+					<li>Take first derivative of this <em>KDE time series</em>, yielding rates of change for longer wavelength trends.</li>
+					<li>Form score for given golden year as difference between the actual derivative for that year and derivative of the KDE (i.e. how the rate of change compares to the background). </li>
+					<li>Generate a similar score for the year following current golden year.</li>
+					<li>Combine scores for golden year and following year (thus allowing for some leading effect of a movies influence)</li>
 				</ol>
 				<p>
-					The idea of this algorithm is to look for notable changes in baby-naming above the general background trend within a given epoch. To see why this is important, consider what we would expect if a celebrities movie-releases increased baby-naming during an epoch where that name was otherwise generally on the decline. The rate of change at any given year would still be negative (and thus score poorly if this was all we considered), but yet a slow down in this decrease could still be relevant.
+					The idea behind this algorithm is to look for notable changes in baby-naming <em>above the general background trend within a given epoch</em>. To see why this is important, consider a movie release that genuinely and positively affected baby-naming during an epoch where the name was otherwise on the decline. Then the effect could be visible through an increase in a <em>still negative</em> rate of change. Thus we not only consider the magnitude of rate of change, but it's relation to background trends
 				</p>
 				<p>
-					To judge whether a given score is significant we form the null hypothesis that the value of the statistic could be explained as occurring merely by chance alignment. To test this null hypothesis we need to know the sample distribution for our score statistic. No obvious analytical form can be deduced for this distribution, and indeed it will vary between celebrities and often be multi-modal (especially when there are several distinct peaks that can overwhelm the scoring). However, we can approximate the distribution through Bootstrapping. To do this, we repeatedly (with replacement) randomly choose sets of five years from the celebrities career and calculate the corresponding value of our score statistic. We can then bin the values obtained to produce a histogram approximating the sample distribution of our statistic. By sorting and cumulatively summing the values in this histogram we can also approximate a cumulative distribution function, and then employ a simple search to estimate the p-value for any given value of the statistic. Below are several distributions generated by this method.
+					<h3>Hypothesis testing</h3>
+					To judge whether a given score is significant, the null hypothesis is formed that the score value could be explained by chance alignment of years. Testing this hypothesis requires a sample distribution for our score statistic. No obvious analytical form can be deduced. Indeed the distribution varies between celebrities, often being multi-modal. However the distribution can be approximated through Bootstrapping. Repeatedly and randomly choosing sets of years from the celebrities career (with replacement), we generate a histogram of scores that approximates the sample distribution. Sorting and cumulatively summing, we can also approximate a Cumulative Distribution Function, allowing us to estimate a p-value for statstic values.
 				</p>
 				<p>
-					Again, there are many flaws in this approach. In particular it only detects small frequency changes – since longer scale trends are factored out as ‘the background’  when being dealt with by the KDE. It’s entirely possible that a celebrity could trigger such a larger scale change (this appears to be the case for example, with Keanu Reeves). [Keanu Reeves dist pic]. A potentially better approach that is currently being implemented is to use a KDE to get an idea of underlying trends and then perturbe this with a gaussian decaying away from the year of interest according to some parameters that are fitted with MLE.
+					Again, there are flaws in this approach. Only high frequency changes are detected – since longer scale trends are factored out as 'background' by the KDE - making celebrodisiac prone to Type II errors. Other approaches involving Maximum Likelihood Estimate modelling are being pursued.
 				</p>
-
-				<p>
-					In it’s current Beta version, celebrodisiac is prone to Type II errors, as the golden year selection algorithm sometimes misses important films, and the scoring algorithm is insensitive to longer wavelength effects.
-				</p>
-
-
-				</div>
-		</div>
-		<div class='top-buffer'></div>
-		<div class='row'>
-			<div class='col-sm-8 col-sm-offset-2'>
-				<h2 style='font-size: 40px'>How does it work?</h2>
+			</div>
 			</div>
 		</div>
 		<div class='top-buffer'></div>
-		<div class="row">
-			<div class='col-sm-8 col-sm-offset-2'>
-				Lorem ipsum dolor sit amet, nostro cotidieque efficiantur ea eam. Atqui alterum pri ei. Dolorum definitionem sed ad, mentitum omnesque pro id. Eum id oporteat accusata, at saepe reprehendunt sit. Pro ex soluta temporibus. In enim consequat incorrupte eos, his ridens aliquando sententiae eu.
-
-				Et sensibus reprehendunt necessitatibus vel, vituperata adversarium nec an, ea vel doming explicari. Pro et cibo contentiones. Ei cum erant temporibus liberavisse, duo clita invidunt theophrastus et. Vim ad summo fastidii luptatum, usu eu atqui error vocent. Eum ex legimus lucilius, no alterum scribentur dissentiet eos, in vis mundi eligendi dissentiet. Per elit concludaturque et, mel agam suavitate patrioque te, et fabulas eloquentiam pri.
-
-				Vel integre signiferumque et, justo nusquam reprehendunt sea ad. Ut augue doctus meliore vis, ut quod minimum lucilius quo, mutat iuvaret feugiat id vim. Est cu assum fabellas euripidis. Et qui dolorem nusquam omnesque. Tempor iuvaret pertinacia et vix, duo modo dicam consequat no. Ea qui tempor iisque, debitis repudiandae voluptatibus ne his.
-
-				Odio verterem et eos, an sea mazim scripta. No quod veniam appetere his. Pro rebum detraxit ut. An qui equidem disputationi, te petentium interpretaris per.
-
-				Illud modus suscipit ea mel, ius ne nullam prompta reprimique. Duo semper adipiscing ad, te nibh consulatu liberavisse sea. Qui eu meliore referrentur. Vix latine accusata consetetur in, quo dicat facete urbanitas eu. Paulo democritum efficiantur vel ut.
-			</div>
-	</div>
 	</div>
   </body>
 </html>
