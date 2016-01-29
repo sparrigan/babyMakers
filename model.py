@@ -142,7 +142,7 @@ def get_name_data(name, sex, start_yr, ret_type = 'json'):
 
 			#Return required type
 			if ret_type=='python':
-				return [q_dict[yr] for yr in range(1880,2011)]
+				return [q_dict[yr] for yr in range(start_yr,2011)]
 			elif ret_type=='json':
 				return json.dumps(q_dict)
 			elif ret_type=='python_dict':
@@ -161,12 +161,12 @@ def get_name_data(name, sex, start_yr, ret_type = 'json'):
 			#Remove non-column entries that might be passed by SQLA
 			#And remove col prefix from others
 			for keyval in q_dict.keys():
-				if keyval[:3] != 'col':
+				if ((keyval[:3] != 'col') or (keyval[3:]<start_yr)):
 					q_dict.pop(keyval)
 				else:
 					q_dict[keyval[3:]] = q_dict.pop(keyval)
 			if ret_type=='python':
-				return [q_dict['col'+str(yr)] for yr in range(1880,2011)]
+				return [q_dict['col'+str(yr)] for yr in range(start_yr,2011)]
 			elif ret_type=='json':
 				return json.dumps(q_dict)
 			elif ret_type=='python_dict':

@@ -31,8 +31,10 @@ def get_celeb_score(data, celeb_years, alpha=0.95):
 	# NOTE: Are assuming dict of years:births over range we want to consider
 	# Convert birth data dict to a pandas Series
 	birth_data = pd.Series(data)
-	birth_data.sort(inplace=True)
+	birth_data.sort_index()
 	all_yrs = birth_data.index
+	print 'birth_data = ', birth_data
+	print 'birth_data.values = ', birth_data.values
 	# Differentiate series
 	name_diff = pd.Series(np.append(np.diff(birth_data.values),0))
 	name_diff.index = all_yrs
@@ -42,14 +44,18 @@ def get_celeb_score(data, celeb_years, alpha=0.95):
 	kde_diff = pd.Series(np.append(np.diff(kde_vals),0))
 	kde_diff.index = all_yrs
 	# Get celebs score
-	celeb_score = calc_celeb_score(celeb_years, name_diff, kde_diff)
+	celeb_score = calc_celeb_score(celeb_years, name_diff, kde_diff, pos_only=True)
+	print 'celeb_years = ', celeb_years
+	print 'celeb_score = ', celeb_score
+	print 'name diff = ', name_diff
+	print 'kde_diff = ', kde_diff
 	# Get values for random distribution
 	mc_samp = []
 	min_yr = min(all_yrs)
 	max_yr = max(all_yrs)
 	for i in range(10000):
 		rand_yrs = get_rand_years(5,min_yr,max_yr)
-		mc_samp.append(calc_celeb_score(rand_yrs,name_diff, kde_diff))
+		mc_samp.append(calc_celeb_score(rand_yrs,name_diff, kde_diff, pos_only=True))
 	# Generate histogram data:
 	wts = np.ones_like(mc_samp)/float(len(mc_samp))
 	hist_vals, hist_bins = np.histogram(mc_samp, bins=int(sqrt(len(mc_samp))), weights=wts)
@@ -58,11 +64,15 @@ def get_celeb_score(data, celeb_years, alpha=0.95):
 	# Return celebrity score, hist_vals, and percentile data
 	return celeb_pval, celeb_score, hist_vals.tolist(), hist_bins.tolist(), percentiles.value.tolist()
 
-def calc_celeb_score(celeb_yrs, name_diff, smooth_diff):
+def calc_celeb_score(celeb_yrs, name_diff, smooth_diff, pos_only=False):
 	"""Rule for scoring a celebrities years based on derivatives"""
 	all_yrs = name_diff.index
 	scores_next = [name_diff[yr] - smooth_diff[yr] for yr in celeb_yrs]
 	scores_current = [name_diff[x-1] - smooth_diff[x-1] if x in all_yrs+1 else 0 for x in celeb_yrs]
+	# Remove negative scores if option set
+	if pos_only:
+		scores_next = [x if x>0 else 0 for x in scores_next]
+		scores_current = [x if x>0 else 0 for x in scores_current]
 	return max(sum(scores_next), sum(scores_current))
 
 def get_rand_years(n, min_yr, max_yr):
@@ -92,8 +102,9 @@ def get_percentile_points(hist_vals, hist_bins, percentile_value, celeb_score=No
 		min_vals = sortbyval['value'] <= celeb_score
 		max_idx = sortbyval.ix[max_vals, 'value'].idxmin()
 		min_idx = sortbyval.ix[min_vals, 'value'].idxmax()
-		# Take average of elements closest to celeb_score
-		celeb_pval = sortbyval.ix[min_idx:max_idx, 'cumsum'].mean()
+		# Take average of elements closest to celeb_score and return
+		# prob of getting more extreme val (p-val)
+		celeb_pval = 1-sortbyval.ix[min_idx:max_idx, 'cumsum'].mean()
 	else:
 		celeb_pval = None
 	return celeb_pval, hist_df.ix[percentile_vals.index]
@@ -314,10 +325,10 @@ def get_d3_data(name, sex, start_yr):
 	data_list = model.get_name_data(name, sex, start_yr, 'python_dict')
 	# Get total birth data to normalise
 	totals = model.get_total_births(sex)
-
+	print "DATA BEFORE NORM = ", data_list
 	# dict comprehension
-	normed_dict = {yr:(data_list[yr]/float(totals[int(yr)])) for yr in data_list.keys()}
-
+	normed_dict = {yr:(data_list[yr]/float(totals[int(yr)]))*100 for yr in data_list.keys()}
+	print "DATA AFTER NORM = ", normed_dict
 	# TODO: Note that this does not return a second error parameter,
 	# which d3.json function expects normally (eg: see use of d3.json here:
 	# http://www.brettdangerfield.com/post/realtime_data_tag_cloud/)

@@ -1,29 +1,36 @@
 {% extends 'd3_base.html' %}
 {% block body %}
-<br>
-<center>
-	<div class="ui right labeled input">
-	  <input type="text" id="name_val" placeholder="Name">
-	  <div class="ui dropdown label">
-	    <div class="text" id="sex_val">Female</div>
-	    <i class="dropdown icon"></i>
-	    <div class="menu">
-	      <div class="item">Male</div>
-	      <div class="item">Female</div>
-	    </div>
-	  </div>
-	</div>
-	<br>
+<div class='row'>
 	<br>
 
-	<button class="ui button" onclick="submitClick()">
-	  Submit
-	</button>
-</center>
-<div class = "score_text"></div>
-<div class="row">
-<div class="plot_area"></div>
+		<div class='col-sm-3 col-sm-offset-3'>
+			<div class="ui right labeled input">
+			  <input type="text" id="name_val" placeholder="Name">
+			  <div class="ui dropdown label">
+			    <div class="text" id="sex_val">Female</div>
+			    <i class="dropdown icon"></i>
+			    <div class="menu">
+			      <div class="item">Male</div>
+			      <div class="item">Female</div>
+			    </div>
+			  </div>
+			</div>
+		</div>
+
+		<div class='col-sm-1 col-sm-offset-1'>
+		<button class="ui button" onclick="submitClick()">
+		  Submit
+		</button>
+
+	</div>
 </div>
+<div class = "prog_text"></div>
+
+<div class="row">
+		<div class="plot_area" style="text-align:center;"></div>
+</div>
+
+<div class = "score_text"></div>
 
 <!-- Script for initialising semantic dropdown -->
 <script>
@@ -37,6 +44,12 @@ $('.ui.dropdown')
 
 
 <script type="text/javascript">
+
+// Add this to header
+// <link href='https://fonts.googleapis.com/css?family=Montserrat:400,700' rel='stylesheet' type='text/css'>
+
+// Add this to CS styles
+// font-family: 'Montserrat', sans-serif;
 
 // TODO: Scrape this for actor/actress names to consider: http://www.imdb.com/search/name?gender=male,female
 // TODO: Use themoviedb api to check whether they have a first film before 2005, and discard if so
@@ -72,11 +85,18 @@ svg = d3.select('.plot_area')
 						.append('svg')
 						.attr('width', w + margin.left + margin.right)
 						.attr('height', h + margin.top + margin.bottom)
+						.attr({'display': 'block', 'margin': '0 auto'})
 						.append('g')
 						.attr('transform', 'translate('+margin.left+','+margin.top+')');
 
+// SVG container for progress text
+prog_svg = d3.selectAll('.prog_text')
+	.append('svg')
+	.attr('width', 800)
+	.attr('height', 0)
+
 // SVG container for score text
-text_svg = d3.selectAll('.score_text')
+score_svg = d3.selectAll('.score_text')
 	.append('svg')
 	.attr('width', 800)
 	.attr('height', 0)
@@ -149,11 +169,107 @@ var setup_plot =  function(dataset) {
 
 
 
-
+function update_prog_bar(prog_text, trans, col) {
+	// Move prog bar into view if is not already
+	if (prog_svg.selectAll('text')[0].length == 0) {
+		console.log("Here")
+		prog_svg
+		.transition()
+		.duration(500)
+		.attr({'height':50})
+		// Add waiting text
+		// TODO: Put semantic loading anim too
+		.call(endall, function(){
+			prog_svg.append('text')
+			.text(prog_text)
+			.attr({
+				'x': 100,
+				'y': -10,
+				'width': 92,
+				'height':20,
+				'fill': 'black',
+				'font-size': 20
+				// 'fill-opacity': 0
+			})
+			.transition("tran_2")
+			.duration(500)
+			.attr('y',30);
+		});
+	} else {
+		// If svg already in view...
+		// Add new text
+		if (trans==true) {
+			// Remove old text with transition
+			prog_svg
+			.selectAll('text')
+			.transition("rem_trans")
+			.duration(500)
+			.attr({'y':-10})
+			.remove();
+			// Add new text with transition
+			prog_svg.append('text')
+			.text(prog_text)
+			.attr({
+				'x': 100,
+				'y': 400,
+				'width': 92,
+				'height':20,
+				'fill': 'black',
+				'font-size': 20
+				// 'fill-opacity': 0
+			})
+			.transition("add_trans")
+			.duration(500)
+			.attr('y',30);
+		} else {
+			// If single string, then replace as all black
+			if (typeof(prog_text) == "string") {
+				// Remove old text with no transition
+				prog_svg
+				.selectAll('text')
+				.remove();
+				// Add new text with no transition
+				prog_svg.append('text')
+				.text(prog_text)
+				.attr({
+					'x': 100,
+					'y': 30,
+					'width': 92,
+					'height':20,
+					'fill': 'black',
+					'font-size': 20
+					// 'fill-opacity': 0
+				});
+			} else {
+				// If list of strings then apply colour to second entry
+				// Remove old text with no transition
+				prog_svg
+				.selectAll('text')
+				.remove();
+				// Add new text
+				new_txt = prog_svg.append('text')
+				.attr({
+					'x': 100,
+					'y': 30,
+					'width': 92,
+					'height':20,
+					'font-size': 20
+				});
+				// Add first part in black
+				new_txt.append('tspan')
+							 .attr('fill', 'black')
+							 .text(prog_text[0]);
+				// Add second part in colour
+				new_txt.append('tspan')
+							 .attr('fill', col)
+							 .text(prog_text[1]);
+			}
+		}
+	}
+}
 
 // Function launched when submit button clicked
 function submitClick(event) {
-
 	// Get name entered in form
 	new_name = document.getElementById('name_val').value;
 	new_sex = document.getElementById('sex_val').innerText;
@@ -165,6 +281,8 @@ function submitClick(event) {
 	url = "/get_d3_data/" + first_name + "/" + new_sex + "/" + start_yr;
 	// Save current celeb name to global:
 	celeb_name = first_name + " " + last_name;
+	// Update user on progress
+	update_prog_bar("Downloading movies for " + celeb_name + "...", trans=true, col='black');
 	// Update rects with name birth values
 	d3.json(url , function(json) {
 		// Extract data from json dict into a JS array of values
@@ -371,7 +489,7 @@ var transitions = {}
 // Adjust movie rect according to scores as they're RECEIVED
 // TODO: This function doesn't actually use the parameter passed to it! remove
 function adjust_rects_score(score) { //!!!! Removed mov_id as paramter
-	cols = ['green','red']
+	cols = ['green','yellow']
 	i = (i+1)%2;
 	// Update domain of scale that converts scores to y values for rects
 	scored_rects = movie_g.selectAll('rect.mrect.scored')
@@ -480,6 +598,7 @@ function comb_score_rule(score_list) {
 
 // Setup and act on promises for removing films based on cast-list
 function movie_cull(movie_json) {
+		update_prog_bar("Removing movies where " + celeb_name + " doesn't play lead... ", trans=true, col='black')
 	// Setup promises to find which movies can ignore
 	var cc_prom_list = [];
 	// List to store movies that do feature actor
@@ -507,7 +626,6 @@ function movie_cull(movie_json) {
 	// When all cast queries return then begin checking their scores.
 	Promise.all(cc_prom_list).then(function(value) {
 		// TODO: Here launch a re-check for all errors we had
-		console.log('ALL DONE!!!!');
 		// Setup promises for evaluating scores of remaining movies
 		check_scores(starring_movs);
 	});
@@ -516,6 +634,8 @@ function movie_cull(movie_json) {
 
 // Setup and act on promises for removing films based on movie scores
 function check_scores(starring_movs) {
+	// Update user info
+	update_prog_bar("Scoring each year based on popularity of movies...", trans=true, col='black')
 	// List to store promises for each remaining movie
 	var score_prom_list = []
 	// Create promises that query api for score of each remaining movie
@@ -541,7 +661,8 @@ function check_scores(starring_movs) {
 	Promise.all(score_prom_list).then(function(value) {
 		// When all in queue, add final then to queue that triggers next part of viz
 		update_rect_sequence.then(function() {
-			console.log('SCORES ALL DONE!!!!');
+			// Update user
+			update_prog_bar("Selecting top five years for "+celeb_name+"...", trans=true, col='black')
 			// TODO: CALCULATE TOP TEN WHEN HAVE ALL MOVIES HERE....
 			//Using filter, sort or order?
 
@@ -557,7 +678,6 @@ function check_scores(starring_movs) {
 			var yr_sort = sort_scores();
 			// Identify all except top 5 (for removal)
 			var bottom = yr_sort.slice(5,yr_sort.length)
-			console.log('GOT HERE....');
 			// If extra vals, remove all but top five years, colour remaining black
 			// and add listener for showing movies each year
 			if (bottom.length>0) {
@@ -634,45 +754,47 @@ function get_celeb_score() {
 	// so perhaps check length of celeb_yrs against top_number
 	d3.json("/get_celeb_score").post(celeb_json, test_callback);
 	// Expand text svg
-	text_svg
-	.transition()
-	.duration(1000)
-	.attr({'height':100})
-	// Add waiting text
-	// TODO: Put semantic loading anim too
-	.call(endall, function(){
-		text_svg.append('text')
-		.text('Calculating score for ' + celeb_name + ' ...')
-		.attr({
-			'x': 100,
-			'y': -10,
-			'width': 92,
-			'height':20,
-			'fill': 'black',
-			'font-size': 20
-			// 'fill-opacity': 0
-		})
-		.transition("tran_2")
-		.duration(300)
-		.attr('y',50);
-	});
+	update_prog_bar("Calculating score for "+celeb_name+" based on top five years...", trans=true, col='black')
+	// score_svg
+	// .transition()
+	// .duration(1000)
+	// .attr({'height':100})
+	// // Add waiting text
+	// // TODO: Put semantic loading anim too
+	// .call(endall, function(){
+	// 	score_svg.append('text')
+	// 	.text('Calculating score for ' + celeb_name + ' ...')
+	// 	.attr({
+	// 		'x': 100,
+	// 		'y': -10,
+	// 		'width': 92,
+	// 		'height':20,
+	// 		'fill': 'black',
+	// 		'font-size': 20
+	// 		// 'fill-opacity': 0
+	// 	})
+	// 	.transition("tran_2")
+	// 	.duration(300)
+	// 	.attr('y',50);
+	// });
 }
 
 function test_callback(error, score_data) {
-	console.log(score_data);
 	// Add text elements with score and confidence
 	// Round values to required precision
 	score = Math.round(score_data['celeb_score']*100000)/100000.0
 	pval = Math.round(score_data['celeb_pval']*100)/100.0
 	hyp_test = ['Score: '+score,'p-value: '+pval]
-	text_svg
+
+
+	prog_svg
 			.selectAll('text')
 			.transition("remove_holder")
 			.duration(300)
 			.attr('y',-50)
 			.remove()
 			.call(endall, function() {
-				text_svg.selectAll('text')
+				prog_svg.selectAll('text')
 				.data(hyp_test)
 				.enter()
 				.append('text')
@@ -688,8 +810,29 @@ function test_callback(error, score_data) {
 				})
 				.transition("add_score")
 				.duration(1000)
-				.attr('y',50);
+				.attr('y',30);
 			});
+
+
+	score_svg
+	.transition()
+	.duration(500)
+	.attr({'height':100})
+
+	score_svg
+	.append('text')
+	.text('Read how celebrodisiac works')
+	.attr({
+		'x': 300,
+		'y': 50,
+		'width': 92,
+		'height':0,
+		'fill': 'gray',
+		'font-size': 25
+	})
+	.transition()
+	.duration(500)
+	.attr({'height':100});
 
 }
 
@@ -821,10 +964,11 @@ var min_rect = 0;
 function keep_movie_bar(keep_val) {
 	current_mov = movie_g.selectAll('rect.mrect')
 									.filter(function(d){return d.info.m_id==keep_val;});
-
 	// Flash up movie name as it is kept
 	// Get movie name, x val from movie
 	mov_data = current_mov.data()[0].info;
+	// Update user
+	update_prog_bar(["Removing movies where " + celeb_name + " doesn't play lead... ", mov_data.title], trans=false, col='green');
 	// Get existing data of text on screen (in case concurently remove two)
 	text_data = movie_g.selectAll('text.mtext').data();
 	// Add data for new text we want to add
@@ -864,6 +1008,7 @@ function keep_movie_bar(keep_val) {
 
 }
 
+
 // Removes a bar and text downwards when movie culled
 function remove_movie_bar(remove_val) {
 	current_mov = movie_g.selectAll('rect.mrect')
@@ -872,6 +1017,7 @@ function remove_movie_bar(remove_val) {
 	// Flash up movie name as it dissapears
 	// Get movie name, x val from movie
 	mov_data = current_mov.data()[0].info;
+	update_prog_bar(["Removing movies where " + celeb_name + " doesn't play lead... ", mov_data.title], trans=false, col='red');
 	// Get existing data of text on screen (in case concurently remove two)
 	text_data = movie_g.selectAll('text.mtext').data();
 	// Add data for new text we want to add
