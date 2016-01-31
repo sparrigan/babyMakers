@@ -152,6 +152,12 @@ function comb_score_rule(score_list) {
 	return score_list.reduce((a,b)=>a+b);
 }
 
+// Convert any single continuous string to camel case
+function camelCase(str) {
+	str = str.toLowerCase()
+	return str[0].toUpperCase()+str.slice(1)
+}
+
 
 //*** Main functions...
 
@@ -307,6 +313,7 @@ function update_prog_bar(prog_text, trans, col) {
 	}
 }
 
+
 // Function launched when submit button clicked
 function submitClick(event) {
 	// Get name entered in form
@@ -314,8 +321,17 @@ function submitClick(event) {
 	new_sex = document.getElementById('sex_val').innerText;
 	// Get first and last names from string
 	name_split = new_name.split(" ");
-	first_name = name_split[0];
-	last_name = name_split[1];
+	if (name_split.length>1) {
+		first_name = name_split[0];
+		last_name = name_split[1];
+	} else {
+		// Send error message if no surname given
+		console.log("Please enter a correct name")
+		return
+	}
+	// Camel case first and last names
+	first_name = camelCase(first_name);
+	last_name = camelCase(last_name);
 	// Get birth history for name requested
 	url = "/get_name_data/" + first_name + "/" + new_sex + "/" + start_yr;
 	// Save current celeb name to global for later access
