@@ -304,11 +304,13 @@ def get_name_data(name, sex, start_yr):
 	# Get total birth data to normalise
 	totals = model.get_total_births(sex)
 	# Pass normed data into dict comprehension
-	normed_dict = {yr:(data_list[yr]/float(totals[int(yr)]))*100 for yr in data_list.keys()}
+	data_dict ={}
+	data_dict['raw'] = {yr:data_list[yr] for yr in data_list.keys()}
+	data_dict['normed'] = {yr:(data_list[yr]/float(totals[int(yr)]))*100 for yr in data_list.keys()}
 	# TODO: Note that this does not return a second error parameter,
 	# which d3.json function expects normally (eg: see use of d3.json here:
 	# http://www.brettdangerfield.com/post/realtime_data_tag_cloud/)
-	return jsonify(**normed_dict)
+	return jsonify(**data_dict)
 
 @application.route('/get_movie_data/<f_name>/<l_name>', methods=['GET', 'POST'])
 def get_movie_data(f_name, l_name):
@@ -337,14 +339,6 @@ def movie_score(movie_id):
 	# Sleep to prevent 429 themoviedb API limit errors
 	time.sleep(0.2)
 	return jsonify(score)
-
-# @application.route('/get_data', methods=["GET", "POST"])
-# def get_data():
-# 	name = request.form['name']
-# 	#Validate input
-# 	name = check_str(name)
-# 	data_list = model.get_name_data(name, 'F', 'python')
-# 	return render_template('data_viz.html', data_list=data_list)
 
 @application.route('/get_celeb_score', methods=["GET", "POST"])
 def celeb_score_route():

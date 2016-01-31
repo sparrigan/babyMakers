@@ -22,8 +22,9 @@
 	</button>
 	</div>
 </div>
+<div class='top-buffer'></div>
 <!-- div for storing progress text above plot area -->
-<div class = "prog_text"></div>
+<div class = "prog_text ui purple message" style='opacity:0; width:800px; height:50px; margin:0 auto;'></div>
 <!-- div for storing svg plot area -->
 <div class="row">
 		<div class="plot_area" style="text-align:center;"></div>
@@ -45,18 +46,21 @@ var movie_g;
 var yScale;
 var xScale;
 var xAxis;
+var yAxis;
 var profile_url;
 var min_movie_yr;
 var max_movie_yr;
 var celeb_name;
 //*** Set parameters...
+var yMode = 0;
+var yLabel = ['Percentage of total births','Number of Births'];
 var start_yr = 1930;
 var w_total = 1000;
 var h_total = 250;
 var barpadding = 1;
 var padding = 20;
 var pad_ratio = 0.05
-var margin = {top: 20, right: 20, bottom: 20, left: 20};
+var margin = {top: 20, right: 10, bottom: 20, left: 50};
 // Form width/height of plot area allowing for margins
 var w = w_total - margin.left - margin.right,
 		h = h_total - margin.top - margin.bottom;
@@ -91,7 +95,7 @@ svg = d3.select('.plot_area')
 prog_svg = d3.selectAll('.prog_text')
 	.append('svg')
 	.attr('width', 800)
-	.attr('height', 0)
+	.attr('height', 0);
 // SVG container for score text
 score_svg = d3.selectAll('.score_text')
 	.append('svg')
@@ -102,10 +106,30 @@ score_svg = d3.selectAll('.score_text')
 url = "/get_name_data/Nicholas/M/" + start_yr;
 d3.json(url, function(json) {
 	// Extract data from json dict into a JS array of values
-	var dvals = Object.keys(json).map(function(k) { return [parseInt(k), json[k]]; });
+	var dvals = Object.keys(json['normed']).map(function(k) { return [parseInt(k), [json['normed'][k], json['raw'][k]]]; });
 	// Setup plot with this data
 	setup_plot(dvals);
 });
+
+svg.append('text')
+	 .text(yLabel[yMode])
+	 .attr('class','y_ax_label')
+	 .attr({
+		 'x': 0,
+		 'y': 0
+	 })
+	 .attr('transform',function(d,i){
+		return 'rotate(-90,'+d3.select(this).attr("x")+','+d3.select(this).attr("y")+')';})
+		.on('click', axisClick)
+svg.selectAll('text.y_ax_label').attr({'y':-40, 'x':-400})
+// Transition in axis label
+text_width = svg.selectAll('text.y_ax_label').node().getComputedTextLength();
+mid = (h/2.0)+(text_width/2.0);
+svg.selectAll('text.y_ax_label')
+	 .transition()
+	 .duration(400)
+	 .attr('x', -mid)
+
 
 //*** Helper functions...
 
@@ -139,8 +163,8 @@ function setup_plot(dataset) {
 								 .rangeBands([0,w], pad_ratio);
 	yScale = d3.scale.linear()
 								 .domain([
-									 d3.min(dataset, function(d){return d[1];}),
-								 	 d3.max(dataset, function(d){return d[1];})
+									 d3.min(dataset, function(d){return d[1][0];}),
+								 	 d3.max(dataset, function(d){return d[1][0];})
 								 ])
 								 .range([h,0]);
 	// Create rects
@@ -153,12 +177,12 @@ function setup_plot(dataset) {
 				 'class': 'barRect',
 				//  Note that we here rescale our index to proper year
 				 'x': function(d,i) {return xScale(d[0]);},
-				 'y': function(d) {return yScale(d[1]);},
+				 'y': function(d) {return yScale(d[1][0]);},
 				 'width': xScale.rangeBand(),
-				 'height': function(d) {return h-yScale(d[1]);},
+				 'height': function(d) {return h-yScale(d[1][0]);},
 				 'fill': function(d) {
 					 return 'rgb(200,0,'
-					 +Math.floor((1-yScale(d[1])/h)*255)
+					 +Math.floor((1-yScale(d[1][0])/h)*255)
 					 +')';}
 					})
 	// Build x-Axis from scale
@@ -167,14 +191,28 @@ function setup_plot(dataset) {
 							.orient('bottom')
 							.tickValues(d3.range(start_yr,2011,20));
 	svg.append('g')
-		 .attr('class', 'axis')
+		 .attr('class', 'x axis')
 		 .attr('transform', 'translate(0,'+h+')')
-		 .call(xAxis)
+		 .call(xAxis);
+	// Build y-Axis from scale
+	yAxis = d3.svg.axis()
+							.scale(yScale)
+							.orient('left')
+							// .tickValues(d3.range(yScale.domain()[0], yScale.domain()[1]));
+	svg.append('g')
+		 .attr('class', 'y axis')
+		//  .attr('transform', )
+		.call(yAxis)
+		.on('click', axisClick);
 }
 
 // Function for pushing text to progress bar above plot
 function update_prog_bar(prog_text, trans, col) {
 	// Move prog bar into view if not already
+	d3.selectAll('.prog_text')
+		.transition('fade_in_div')
+		.duration(200)
+		.style('opacity',100)
 	if (prog_svg.selectAll('text')[0].length == 0) {
 		prog_svg
 		.transition()
@@ -185,7 +223,7 @@ function update_prog_bar(prog_text, trans, col) {
 			prog_svg.append('text')
 			.text(prog_text)
 			.attr({
-				'x': 100,
+				'x': 50,
 				'y': -10,
 				'width': 92,
 				'height':20,
@@ -194,7 +232,7 @@ function update_prog_bar(prog_text, trans, col) {
 			})
 			.transition("tran_2")
 			.duration(500)
-			.attr('y',30);
+			.attr('y',20);
 		});
 	} else {
 		// If svg already in view...
@@ -211,7 +249,7 @@ function update_prog_bar(prog_text, trans, col) {
 			prog_svg.append('text')
 			.text(prog_text)
 			.attr({
-				'x': 100,
+				'x': 50,
 				'y': 400,
 				'width': 92,
 				'height':20,
@@ -220,7 +258,7 @@ function update_prog_bar(prog_text, trans, col) {
 			})
 			.transition("add_trans")
 			.duration(500)
-			.attr('y',30);
+			.attr('y',20);
 		} else {
 			// If single string, then replace as all black
 			if (typeof(prog_text) == "string") {
@@ -232,8 +270,8 @@ function update_prog_bar(prog_text, trans, col) {
 				prog_svg.append('text')
 				.text(prog_text)
 				.attr({
-					'x': 100,
-					'y': 30,
+					'x': 50,
+					'y': 20,
 					'width': 92,
 					'height':20,
 					'fill': 'black',
@@ -248,8 +286,8 @@ function update_prog_bar(prog_text, trans, col) {
 				// Add new text
 				new_txt = prog_svg.append('text')
 				.attr({
-					'x': 100,
-					'y': 30,
+					'x': 50,
+					'y': 20,
 					'width': 92,
 					'height':20,
 					'font-size': 20
@@ -259,9 +297,11 @@ function update_prog_bar(prog_text, trans, col) {
 							 .attr('fill', 'black')
 							 .text(prog_text[0]);
 				// Add second part in colour
+				movie_name_txt = prog_text[1].substring(0,15)
+				if (prog_text[1].length>15) {movie_name_txt += '...'};
 				new_txt.append('tspan')
 							 .attr('fill', col)
-							 .text(prog_text[1]);
+							 .text(movie_name_txt);
 			}
 		}
 	}
@@ -285,7 +325,7 @@ function submitClick(event) {
 	// Update rects with name birth values
 	d3.json(url , function(json) {
 		// Extract data from json dict into a JS array of values
-		var dvals = Object.keys(json).map(function(k) { return [parseInt(k), json[k]]; });
+		var dvals = Object.keys(json['normed']).map(function(k) { return [parseInt(k), [json['normed'][k], json['raw'][k]]]; });
 		// Setup plot with this data
 		update_rects(dvals);
 	});
@@ -305,6 +345,57 @@ function submitClick(event) {
 	return false;
 }
 
+// Function that changes unit on y-axis when axis is clicked
+function axisClick() {
+	console.log('clicked');
+	// Update yMode
+	yMode = (yMode+1)%2;
+	// Change axis label - remove old label
+	svg.selectAll('text.y_ax_label')
+		.attr('opacity', 1)
+		 .transition()
+		 .duration(400)
+		 .attr({'y': -50, 'opacity': 0})
+		 .call(endall, function() {
+			 // Add on new label in middle
+			 svg.selectAll('text.y_ax_label')
+		 		 .text(yLabel[yMode]);
+		 	text_width = svg.selectAll('text.y_ax_label').node().getComputedTextLength();
+		 	mid = (h/2.0)+(text_width/2.0);
+		 	svg.selectAll('text.y_ax_label')
+		 		 .attr({'y':-50, 'x':-mid})
+				 .transition("move_up")
+				 .duration(400)
+				 .attr({'y':-40, 'opacity':1});
+		 });
+	// Update yScale
+	current_data = svg.selectAll('rect.barRect').data();
+	yScale.domain([0, d3.max(current_data, function(d){return d[1][yMode];})])
+	// Update y-Axis
+	yAxis = d3.svg.axis()
+							.scale(yScale)
+							.orient('left')
+	// Use letter suffix (k->thousand) for absolute baby numbers
+	if (yMode == 1) {
+		yAxis.tickFormat(d3.format("s"))
+	}
+	svg.select('g.axis.y')
+			.transition()
+			.duration(200)
+			.call(yAxis);
+	// Update birth history rects
+	svg.selectAll('rect.barRect')
+		 .transition()
+		 .delay(function(d,i) {return i/131 * 500;})
+		 .duration(950)
+		 .attr({
+			 'y': function(d) {return yScale(d[1][yMode]);},
+			 'height': function(d) {return h-yScale(d[1][yMode]);},
+			 'fill': function(d) {
+								return 'rgb(200,0,'+Math.floor((1-yScale(d[1][yMode])/h)*255) +')';
+								}
+			});
+}
 
 // Function plot rects for all movies of a celebrity
 function plot_movie_points(movie_json, actor_id) {
@@ -630,8 +721,9 @@ function get_celeb_score() {
 	// Get baby-name history within celebrities career
 	baby_vals = svg.selectAll('rect.barRect').data().filter(
 				function(d) {
-					if (d[0]>=min_movie_yr && d[0]<=max_movie_yr) {return d}
-				});
+					return (d[0]>=min_movie_yr && d[0]<=max_movie_yr)
+				})
+				.map(function(d) {return [d[0], d[1][0]]});
 	// POST json of data to server
 	celeb_json = JSON.stringify({"celeb_yrs":celeb_yrs, "baby_vals":baby_vals});
 	d3.json("/get_celeb_score").post(celeb_json, final_score_received);
@@ -659,7 +751,7 @@ function final_score_received(error, score_data) {
 				.append('text')
 				.text(function(d){return d;})
 				.attr({
-					'x': function(d,i) {return (200+(i*300));},
+					'x': function(d,i) {return (100+(i*300));},
 					'y': 500,
 					'width': 92,
 					'height':20,
@@ -669,7 +761,7 @@ function final_score_received(error, score_data) {
 				})
 				.transition("add_score")
 				.duration(1000)
-				.attr('y',30);
+				.attr('y',20);
 			});
 	// Expand text svg underneath plot area for finishing message
 	score_svg
@@ -885,8 +977,16 @@ function remove_movie_bar(remove_val) {
 function update_rects(new_dataset) {
 	// Update yscale
 	yScale = d3.scale.linear()
-								 .domain([0, d3.max(new_dataset, function(d){return d[1];})])
+								 .domain([0, d3.max(new_dataset, function(d){return d[1][yMode];})])
 								 .range([h,0]);
+	// Update y-Axis
+	yAxis = d3.svg.axis()
+							.scale(yScale)
+							.orient('left')
+	svg.select('g.axis.y')
+			.transition()
+			.duration(200)
+			.call(yAxis);
 	//Update rects
 	svg.selectAll('rect.barRect')
 		 .data(new_dataset)
@@ -894,10 +994,10 @@ function update_rects(new_dataset) {
 		 .delay(function(d,i) {return i/131 * 500;})
 		 .duration(950)
 		 .attr({
-			 'y': function(d) {return yScale(d[1]);},
-			 'height': function(d) {return h-yScale(d[1]);},
+			 'y': function(d) {return yScale(d[1][yMode]);},
+			 'height': function(d) {return h-yScale(d[1][yMode]);},
 			 'fill': function(d) {
-								return 'rgb(200,0,'+Math.floor((1-yScale(d[1])/h)*255) +')';
+								return 'rgb(200,0,'+Math.floor((1-yScale(d[1][yMode])/h)*255) +')';
 								}
 			});
 }
