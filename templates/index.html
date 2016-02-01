@@ -22,7 +22,14 @@
 	</button>
 	</div>
 </div>
-<div class='top-buffer'></div>
+
+<div class='top-buffer info-buffer'></div>
+
+<div class="ui info message tip_box" style='width:800px; height:50px; margin:0 auto;'>
+  <i class="close icon"></i>
+  <span class="header"> Tip:</span>
+	<i class="pointing right icon"></i><i class="bar chart icon"></i>Clicking on the y-axis changes from <em>Percentages</em> of births to <em>Total number</em> of births.
+</div>
 <!-- div for storing progress text above plot area -->
 <div class = "prog_text ui purple message" style='opacity:0; width:800px; height:50px; margin:0 auto;'></div>
 <!-- div for storing svg plot area -->
@@ -52,6 +59,7 @@ var min_movie_yr;
 var max_movie_yr;
 var celeb_name;
 //*** Set parameters...
+var tip_check=0;
 var yMode = 0;
 var yLabel = ['Percentage of total births','Number of Births'];
 var start_yr = 1930;
@@ -102,6 +110,10 @@ score_svg = d3.selectAll('.score_text')
 	.attr('width', 800)
 	.attr('height', 0)
 
+// Listen for clicks closing info both_sex
+d3.selectAll('.close.icon')
+	.on('click', close_info);
+
 // Initial plot before user input
 url = "/get_name_data/Nicholas/M/" + start_yr;
 d3.json(url, function(json) {
@@ -132,6 +144,36 @@ svg.selectAll('text.y_ax_label')
 
 
 //*** Helper functions...
+
+// Helper fn that adds alert box with text and wires up close icon
+function warning_box(txt) {
+	close_str = '<i class="close icon"></i>';
+	icon_str = '  <i class="warning sign icon"></i>  ';
+	pre_str = '<div class="header" style="text-align:center;">';
+	post_str = '</div>';
+	total_str = close_str + pre_str + icon_str + txt + icon_str + post_str;
+	d3.selectAll('.info-buffer')
+		.append('div')
+		.classed('ui warning message', true)
+		.style({'opacity':0,'width':'800px', 'height':'50px', 'margin':'0 auto'})
+		.html(total_str)
+		.transition()
+		.duration(300)
+		.style('opacity',1);
+		// Make sure all close icons are wired up to closes
+		d3.selectAll('.close.icon')
+			.on('click',close_info);
+}
+
+// Helper fn that closes parent element info box
+function close_info() {
+	d3.select(this.parentNode)
+		.style('opacity',1)
+		.transition()
+		.duration(300)
+		.style('opacity',0)
+		.remove()
+}
 
 // Helper fn that creates callback when *all* elements in select transition
 function endall(transition, callback) {
@@ -316,6 +358,20 @@ function update_prog_bar(prog_text, trans, col) {
 
 // Function launched when submit button clicked
 function submitClick(event) {
+	// Recolor info bar purple
+	d3.selectAll('.prog_text').classed('red',false);
+	d3.selectAll('.prog_text').classed('green',false);
+	d3.selectAll('.prog_text').classed('purple',true);
+	// Remove tip-box if exists
+	d3.selectAll('.tip_box').style('opacity',1)
+		.transition()
+		.duration(100)
+		.style('opacity',0)
+		.remove()
+	// Reset score detail div
+	score_svg.selectAll('text').remove();
+	score_svg.attr('height', 0);
+
 	// Get name entered in form
 	new_name = document.getElementById('name_val').value;
 	new_sex = document.getElementById('sex_val').innerText;
@@ -326,7 +382,8 @@ function submitClick(event) {
 		last_name = name_split[1];
 	} else {
 		// Send error message if no surname given
-		console.log("Please enter a correct name")
+		warning_box("Please enter full name, including surname!")
+		// Break out of click function and wait for further input
 		return
 	}
 	// Camel case first and last names
@@ -336,14 +393,21 @@ function submitClick(event) {
 	url = "/get_name_data/" + first_name + "/" + new_sex + "/" + start_yr;
 	// Save current celeb name to global for later access
 	celeb_name = first_name + " " + last_name;
-	// Update user on progress
-	update_prog_bar("Downloading movies for " + celeb_name + "...", trans=true, col='black');
+
 	// Update rects with name birth values
-	d3.json(url , function(json) {
-		// Extract data from json dict into a JS array of values
-		var dvals = Object.keys(json['normed']).map(function(k) { return [parseInt(k), [json['normed'][k], json['raw'][k]]]; });
-		// Setup plot with this data
-		update_rects(dvals);
+	d3.json(url , function(error, json) {
+		// Print warning and break if error
+		if (error) {
+			warning_box("Error: Please check name is correctly spelled and a real movie-star!")
+			return
+		} else {
+			// Update user on progress
+			update_prog_bar("Downloading movies for " + celeb_name + "...", trans=true, col='black');
+			// Extract data from json dict into a JS array of values
+			var dvals = Object.keys(json['normed']).map(function(k) { return [parseInt(k), [json['normed'][k], json['raw'][k]]]; });
+			// Setup plot with this data
+			update_rects(dvals);
+		}
 	});
 	// Request movie releases for chosen movie-star
 	url_movies = "/get_movie_data/" + first_name + "/" + last_name;
@@ -437,7 +501,9 @@ function plot_movie_points(movie_json, actor_id) {
 					 'width': xScale.rangeBand()/2,
 					 'height': function(d) {return (h-100);},
 					 'fill': 'rgb(104,104,104)',
-					 'fill-opacity': 0.8
+					 'fill-opacity': 0.8,
+					 'stroke': 'black',
+					 'stroke-width': 1
 				 })
 				 .transition()
 				 .duration(600)
@@ -750,10 +816,21 @@ function get_celeb_score() {
 // Function called when celebrities final score/p-val received from server
 function final_score_received(error, score_data) {
 	// Round values to required precision
-	score = Math.round(score_data['celeb_score']*100000)/100000.0
-	pval = Math.round(score_data['celeb_pval']*100)/100.0
+	score = Math.round(score_data['celeb_score']*100000)/100000.0;
+	pval = Math.round(score_data['celeb_pval']*100)/100.0;
+	if (pval<=0.05) {
+		result = 'PASS';
+		only = '';
+		d3.selectAll('.prog_text').classed('purple',false).classed('green',true);
+	} else {
+		result ='FAIL';
+		only = 'only ';
+		d3.selectAll('.prog_text').classed('purple',false).classed('red',true);
+	}
+	// Get confidence perecentage
+	conf_perc = Math.round((1-pval)*100);
 	// Add text elements with score and confidence
-	hyp_test = ['Score: '+score,'p-value: '+pval]
+	// hyp_test = ['Score: '+score,'p-value: '+pval]
 	prog_svg
 			.selectAll('text')
 			.transition("remove_holder")
@@ -761,13 +838,10 @@ function final_score_received(error, score_data) {
 			.attr('y',-50)
 			.remove()
 			.call(endall, function() {
-				prog_svg.selectAll('text')
-				.data(hyp_test)
-				.enter()
-				.append('text')
-				.text(function(d){return d;})
+				prog_svg.append('text')
+				.text('Model is '+only+conf_perc+'% confident a non-chance correlation exists')
 				.attr({
-					'x': function(d,i) {return (100+(i*300));},
+					'x': 25,
 					'y': 500,
 					'width': 92,
 					'height':20,
@@ -775,29 +849,51 @@ function final_score_received(error, score_data) {
 					'font-size': 25
 					// 'fill-opacity': 0
 				})
-				.transition("add_score")
+				.transition("add_score_txt")
 				.duration(1000)
 				.attr('y',20);
 			});
-	// Expand text svg underneath plot area for finishing message
+
+	// Expand text svg underneath plot area with details
 	score_svg
 	.transition()
 	.duration(500)
 	.attr({'height':100})
 	score_svg
 	.append('text')
-	.text('Read how celebrodisiac works')
+	.text('Details:   score = '+score+', with p-value = '+pval+' which is a '+result+' under \u03B1 = 0.05')
 	.attr({
-		'x': 300,
+		'x': 15,
 		'y': 50,
 		'width': 92,
 		'height':0,
 		'fill': 'gray',
-		'font-size': 25
+		'font-size': 23
 	})
 	.transition()
 	.duration(500)
 	.attr({'height':100});
+
+	// If not shown before, append tip on hovering over yrs for movie posters
+	tiphtml = '<i class="close icon"></i><span class="header"> Tip:</span><i class="pointing up icon"></i><i class="bar chart icon"></i>Hovering over surviving movie years shows films released that year.'
+	if (tip_check==0) {
+		tip_check=1;
+		// Wait some time after displaying score info.
+		setTimeout(function() {
+			 d3.selectAll('.info-buffer')
+				.append('div')
+				.classed('ui info message tip_box', true)
+				.style({'width':'800px', 'height':'50px', 'margin':'0 auto','opacity':0})
+				.html(tiphtml)
+				.transition()
+				.duration(200)
+				.style('opacity',1);
+
+				d3.selectAll('.close.icon')
+					.on('click',close_info);
+			}, 5000);
+
+	}
 }
 
 // Function that displays movie posters for year on mouseover

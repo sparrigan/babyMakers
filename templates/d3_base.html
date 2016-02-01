@@ -82,15 +82,15 @@
 			<div class="row">
 				<div class='col-sm-8 col-sm-offset-2' style='font-size: 16px'>
 					<p>
-						Celebrodisiac is a visualization tool for investigating whether the work of a movie-star has influenced US baby-naming trends. The app retrieves US Census data from a local SQL database, and overlays movie releases found through themoviedb public API. The visualisition uses D3.js.
+						Celebrodisiac is a visualization tool for investigating whether the work of a movie-star has influenced US baby-naming trends. The app retrieves <a href="https://www.ssa.gov/oact/babynames/limits.html">US Social Security data</a> from a local SQL database, and overlays movie releases found through <a href="https://www.themoviedb.org/">themoviedb</a> public API. The visualisition uses <a href="http://d3js.org/">D3.js</a>.
 					</p>
 					<p>
-						Visualisation alone is prone to error and bias, and so celebrodisiac uses two server-side algorithms (in python) to processes the data to help us draw conclusions...
+						Visualisation alone is prone to error and bias, and so celebrodisiac uses two server-side (python) algorithms to process the data to help us draw conclusions...
 						<ul>
-							<li><strong style='color: purple;'>The golden years algorithm:</strong> Helps determine which years are noteworthy for the celebrity? (when we might expect changes in baby names)</li>
+							<li><strong style='color: purple;'>The golden years algorithm:</strong> Helps determine which years are noteworthy for the celebrity (when we might expect changes in baby names)</li>
 							<li><strong style='color:red;'>The significance algorithm:</strong> Helps determine whether any apparent correlation between these years and changes in baby naming are attributable to more than just chance.</li>
 						</ul>
-					 For more information on each algorithm, click below...
+					 For more information on each algorithm, click below.
 					</p>
 					<button data-toggle="collapse" data-target="#gold_yrs" class="ui purple button">
 							Golden years algorithm <i class="dropdown icon"></i>
@@ -98,11 +98,11 @@
 					<div id="gold_yrs" class="collapse">
 						<div class='top-buffer'></div>
 						<p>
-							Most Hollywood celebrities have produced many films, spanning decades. It’s crucial that we develop a rule for deciding on a subset of years that we <strong><em>independently</em></strong> predict to be the celebrities ‘golden years’ when they were most in the public eye, and most likely to have influenced baby-naming trends. Then (and only then!) should we look for correlations with increases in baby-naming. Celebrodisiac selects - at most - five years for each celebrity using the following algorithm
+							Most Hollywood celebrities have produced many films, spanning decades. It’s crucial that we develop a rule for deciding on a subset of years that we <strong><em>independently</em></strong> predict the years when they were most in the public eye, and most likely to have influenced baby-naming trends (their ‘golden years’). Then (and only then!) should we look for correlations with increases in baby-naming. Celebrodisiac selects - at most - five years for each celebrity using the following algorithm
 						</p>
 
 						<ol>
-							<li>Start with all releases between 1930 and most recent year in US census data.</li>
+							<li>Start with all releases between 1930 and most recent year in baby name data.</li>
 							<li>Remove any releases in which celebrity is not credited as being within top 3 cast list by themoviedb API.</li>
 							<li>Score each remaining movie by combining rating and popularity figures available from themoviedb API.</li>
 							<li>Score each year based on the number of movies released that year and their respective scores.</li>
