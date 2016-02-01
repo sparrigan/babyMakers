@@ -374,7 +374,7 @@ function submitClick(event) {
 
 	// Get name entered in form
 	new_name = document.getElementById('name_val').value;
-	new_sex = document.getElementById('sex_val').innerText;
+	new_sex = document.getElementById('sex_val').textContent;
 	// Get first and last names from string
 	name_split = new_name.split(" ");
 	if (name_split.length>1) {
