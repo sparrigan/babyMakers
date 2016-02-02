@@ -914,6 +914,13 @@ function final_score_received(error, score_data) {
 
 // Function that displays movie posters for year on mouseover
 function movie_name_fn(d) {
+	// Determine whether to present movies to the left or right
+	mid_year = Math.round(start_yr+(2010-start_yr)/2.0)
+	if (d.info.release > mid_year) {
+		pos_side = 0;
+	} else {
+		pos_side = 1;
+	}
 	// Get Number of movies this year
 	if ('multi_data' in d) {
 		num_mov = d.multi_data.length;
@@ -933,13 +940,15 @@ function movie_name_fn(d) {
 				.attr({
 					'xlink:href': function(d) {
 						if (d['info']['poster']) {
+							// Position before fade-in (determined by side of mid-year)
 							return img_base_url+String(d['info']['poster']);
 						} else {
 							return img_base_url+String(profile_url);
 						}
 					},
+					// Determine positions based on side of mid-year
 					// NOTE: themovied images are 92px wide
-					'x': function(d,i) {return i*92-50;},
+					'x': function(d,i) {return w*pos_side + ((i+pos_side)*92*Math.pow(-1,pos_side))-50*Math.pow(-1,pos_side);},
 					'y': 0,
 					'width': 92,
 					'height': 138,
@@ -949,7 +958,7 @@ function movie_name_fn(d) {
 				.delay(function(d,i) {return i*200})
 				.duration(400)
 				.attr({
-					'x': function(d,i) {return i*92;},
+					'x': function(d,i) {return w*pos_side + ((i+pos_side)*92*Math.pow(-1,pos_side));},
 					'opacity': 1
 				})
 	// Add text under movie images
