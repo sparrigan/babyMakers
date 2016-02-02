@@ -4,7 +4,7 @@ Celebrodisiac is a tool for investigating whether movie-stars have had an influe
 
 # Local build instructions
 
-The tool is available online at xxxx. To recreate the project yourself locally, take the following steps.
+The tool is available online at [http://www.celebrodisiac.com/][8]. To recreate the project yourself locally, take the following steps.
 
 ## Clone repo
 
@@ -408,3 +408,4 @@ Type Control+D or \q to exit the posgreSQL prompt. -->
 [5]: https://www.ssa.gov/oact/babynames/limits.html
 [6]: https://docs.python.org/2/howto/logging.html
 [7]: https://www.nginx.com/resources/wiki/start/topics/tutorials/install/
+[8]: http://www.celebrodisiac.com/

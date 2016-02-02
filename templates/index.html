@@ -937,27 +937,28 @@ function movie_name_fn(d) {
 					'opacity': 1
 				})
 	// Add text under movie images
-				.each(function(d,i) {
-					title = d.info.title
-					info_g
-								.append('text')
-								.text(title)
-								.attr({
-									'x': i*92-50,
-									'y': 160,
-									'width': 92,
-									'height':20,
-									'fill': 'black',
-									'fill-opacity': 0
-								})
-								.transition()
-								.delay(function(d,i) {return i*200})
-								.duration(400)
-								.attr({
-									'x': i*92,
-									'fill-opacity': 1
-								})
-				})
+	// TODO: Center this text to use it
+				// .each(function(d,i) {
+				// 	title = d.info.title
+				// 	info_g
+				// 				.append('text')
+				// 				.text(title)
+				// 				.attr({
+				// 					'x': i*92-50,
+				// 					'y': 160,
+				// 					'width': 92,
+				// 					'height':20,
+				// 					'fill': 'black',
+				// 					'fill-opacity': 0
+				// 				})
+				// 				.transition()
+				// 				.delay(function(d,i) {return i*200})
+				// 				.duration(400)
+				// 				.attr({
+				// 					'x': i*92,
+				// 					'fill-opacity': 1
+				// 				})
+				// })
 	// Add mouseout event for removing pics when leave
 	current_yr = d.info.release;
 	movie_g.selectAll('rect.mrect.scored')
