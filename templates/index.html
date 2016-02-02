@@ -146,13 +146,16 @@ svg.selectAll('text.y_ax_label')
 //*** Helper functions...
 
 // Helper fn that adds alert box with text and wires up close icon
-function warning_box(txt) {
+function warning_box(txt,below_el) {
 	close_str = '<i class="close icon"></i>';
 	icon_str = '  <i class="warning sign icon"></i>  ';
 	pre_str = '<div class="header" style="text-align:center;">';
 	post_str = '</div>';
 	total_str = close_str + pre_str + icon_str + txt + icon_str + post_str;
-	d3.selectAll('.info-buffer')
+	if (!below_el) {
+		below_el = '.info-buffer'
+	}
+	d3.selectAll(below_el)
 		.append('div')
 		.classed('ui warning message', true)
 		.style({'opacity':0,'width':'800px', 'height':'50px', 'margin':'0 auto'})
@@ -382,7 +385,7 @@ function submitClick(event) {
 		last_name = name_split[1];
 	} else {
 		// Send error message if no surname given
-		warning_box("Please enter full name, including surname!")
+		warning_box("Please enter full name, including surname!", null)
 		// Break out of click function and wait for further input
 		return
 	}
@@ -398,7 +401,7 @@ function submitClick(event) {
 	d3.json(url , function(error, json) {
 		// Print warning and break if error
 		if (error) {
-			warning_box("Error: Please check name is correctly spelled and a real movie-star!")
+			warning_box("Error: Please check name is correctly spelled and a real movie-star!", null)
 			return
 		} else {
 			// Update user on progress
@@ -740,6 +743,7 @@ function movie_cull(movie_json) {
 // Function that acts on promises to remove movies based on scores
 function check_scores(starring_movs) {
 	// Update user
+	warning_box("Warning: Score calculation is currently in Beta (see below)", '.plot_area')
 	update_prog_bar("Scoring each year based on popularity of movies...", trans=true, col='black')
 	// List to store promises for each remaining movie
 	var score_prom_list = []
