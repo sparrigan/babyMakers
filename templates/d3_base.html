@@ -98,7 +98,7 @@
 					<div id="gold_yrs" class="collapse">
 						<div class='top-buffer'></div>
 						<p>
-							Most Hollywood celebrities have produced many films, spanning decades. It’s crucial that we develop a rule for deciding on a subset of years that we <strong><em>independently</em></strong> predict the years when they were most in the public eye, and most likely to have influenced baby-naming trends (their ‘golden years’). Then (and only then!) should we look for correlations with increases in baby-naming. Celebrodisiac selects - at most - five years for each celebrity using the following algorithm
+							Most Hollywood celebrities have produced many films, spanning decades. It’s crucial that we develop a rule for deciding on a subset of years that we <strong><em>independently</em></strong> predict to be the years when they were most in the public eye, and most likely to have influenced baby-naming trends (their ‘golden years’). Then (and only then!) should we look for correlations with increases in baby-naming. Celebrodisiac selects - at most - five years for a celebrity using the following algorithm
 						</p>
 
 						<ol>
@@ -142,7 +142,7 @@
 				</p>
 				<p>
 					<h3>Hypothesis testing</h3>
-					To judge whether a given score is significant, the null hypothesis is formed that the score value could be explained by chance alignment of years. Testing this hypothesis requires a sample distribution for our score statistic. No obvious analytical form can be deduced. Indeed the distribution varies between celebrities, often being multi-modal. However the distribution can be approximated through Bootstrapping. Repeatedly and randomly choosing sets of years from the celebrities career (with replacement), we generate a histogram of scores that approximates the sample distribution. Sorting and cumulatively summing, we can also approximate a Cumulative Distribution Function, allowing us to estimate a p-value for statstic values.
+					To judge whether a given score is significant, the null hypothesis is formed that the score value could be explained by chance alignment of years. Testing this hypothesis requires a sample distribution for our score statistic. No obvious analytical form can be deduced. Indeed the distribution varies between celebrities, often being multi-modal. However the distribution can be approximated through Bootstrapping. Repeatedly and randomly choosing sets of years from the celebrities career (with replacement), we generate a histogram of scores that approximates the sample distribution. Sorting and cumulatively summing, we can also approximate a Cumulative Distribution Function, allowing us to estimate a p-value for a given statistic value.
 				</p>
 				<p>
 					Again, there are flaws in this approach. Only high frequency changes are detected – since longer scale trends are factored out as 'background' by the KDE - making celebrodisiac prone to Type II errors. Other approaches involving Maximum Likelihood Estimate modelling are being pursued.
