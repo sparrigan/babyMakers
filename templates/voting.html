@@ -1,0 +1,16 @@
+{% extends 'voting_base.html' %}
+{% block body %}
+
+<div>
+</div>
+
+<script type="text/javascript">
+
+url = "/list_of_recordings";
+d3.json(url, function(json) {
+	console.log(json)
+});
+
+</script>
+
+{% endblock %}
