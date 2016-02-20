@@ -408,7 +408,8 @@ def recieve_data():
 	resp = twilio.twiml.Response()
 	resp.message()
 	print dict_of_responses
-	return str(resp)
+	return '<response></response>'
+	# return str(resp)
 
 @application.route('/list_of_recordings')
 def list_of_recordings():
