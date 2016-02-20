@@ -356,7 +356,7 @@ def celeb_score_route():
 
 # !!! Start temporary voting app !!!
 
-dict_of_responses = {"True": {"feb 3rd, 2015": [1,2,3,3,3,2,2,1]}, "False":[{"april 18th, 2015": [1,2,3,3,2,1]}]}
+dict_of_responses = {"True": {"feb 3rd, 2015": [1,2,3,3,3,3,2,2,1]}, "False":[{"april 18th, 2015": [1,2,3,3,2,1]}]}
 
 chardic = {'a':1, 'b':2, 'c':3}
 def txtparse(string):

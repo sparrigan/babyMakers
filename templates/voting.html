@@ -28,7 +28,7 @@ xScale = d3.scale.ordinal()
 							 .domain(d3.range(1,4))
 							 .rangeBands([0,w], pad_ratio);
 yScale = d3.scale.linear()
-							 .domain([0,10])
+							 .domain([0,3])
 							 .range([h,0]);
 
 // Build x-Axis from scale
@@ -66,10 +66,15 @@ d3.json(url, function(json) {
 update_bar = function(inp_data) {
 	console.log('input data', inp_data);
 	// Update y scale
-	yScale = d3.scale.linear()
-								 .domain([0,d3.max(inp_data, function(d) {return d[1];})])
-								 .range([h,0]);
-	yAxis.scale(yScale);
+	yScale.domain([0,d3.max(inp_data, function(d) {return d[1];})])
+	yAxis = d3.svg.axis()
+							.scale(yScale)
+							.tickFormat(d3.format("d"))
+							.orient('left')
+
+	 svg.select('g.axis.y')
+				.call(yAxis);
+
 	// Update rects
 	var rects =
 		svg.selectAll('rect')
