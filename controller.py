@@ -391,7 +391,7 @@ def recieve_data():
 		sms_body = request.get_json(force=True)["Body"]
 		# sms_body = request.values.get("Body")
 		print "BODY OF SMS IS: ", sms_body
-		sms_text = sms_body
+		smstext = sms_body
 		#Parse body of sms text
 		sms_body = txtparse(sms_body)
 		#get the name of the recording
