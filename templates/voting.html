@@ -2,6 +2,7 @@
 {% block body %}
 
 <div class="plot_area" style="text-align:center;"></div>
+<div class="getsms">CLICK TO TEST SMS DATA RECIEVED</div>
 
 <script type="text/javascript">
 
@@ -15,6 +16,16 @@ var margin = {top: 20, right: 10, bottom: 20, left: 50};
 // Form width/height of plot area allowing for margins
 var w = w_total - margin.left - margin.right,
 		h = h_total - margin.top - margin.bottom;
+
+d3.select('.getsms')
+	.on('click',printsms)
+
+function printsms() {
+		d3.json("/get_sms_text", function(json) {
+				console.log('Here it is: ', json)
+			}
+			)
+}
 
 svg = d3.select('.plot_area')
 						.append('svg')
