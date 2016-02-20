@@ -356,6 +356,10 @@ def celeb_score_route():
 
 # !!! Start temporary voting app !!!
 
+import re
+from twilio.rest import TwilioRestClient
+import twilio.twiml
+
 dict_of_responses = {"True": {"feb 3rd, 2015": [1,2,3,3,3,3,2,2,1]}, "False":[{"april 18th, 2015": [1,2,3,3,2,1]}]}
 
 chardic = {'a':1, 'b':2, 'c':3}
@@ -378,7 +382,9 @@ def voting_index():
 def recieve_data():
 	"""Recieves incoming text data, if "True" is not None, add to list"""
 	if dict_of_responses["True"] != None:
-		sms_body = request.values.get("Body")
+		sms_body = request.get_json(force=True)["Body"]
+		# sms_body = request.values.get("Body")
+		print "BODY OF SMS IS: ", sms_body
 		#Parse body of sms text
 		sms_body = txtparse(sms_body)
 		#get the name of the recording
@@ -480,6 +486,14 @@ def get_vote_data():
 	else:
 		return None
 
+
+#Function for testing posting json
+# import json
+# import urllib2
+# def testjson(data,url):
+# 	req = urllib2.Request(url)
+# 	req.add_header('Content-Type', 'application/json')
+# 	response = urllib2.urlopen(req, json.dumps(data))
 
 
 # !!! End temporary voting app !!!
