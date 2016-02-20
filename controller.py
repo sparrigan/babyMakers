@@ -361,7 +361,7 @@ from twilio.rest import TwilioRestClient
 import twilio.twiml
 
 dict_of_responses = {"True": {"feb 3rd, 2015": [1,2,3,3,3,3,2,2,1]}, "False":[{"april 18th, 2015": [1,2,3,3,2,1]}]}
-smstext = ""
+smstext = "la"
 
 chardic = {'a':1, 'b':2, 'c':3}
 def txtparse(string):
@@ -391,6 +391,7 @@ def recieve_data():
 		sms_body = request.get_json(force=True)["Body"]
 		# sms_body = request.values.get("Body")
 		print "BODY OF SMS IS: ", sms_body
+		global smstext
 		smstext = sms_body
 		#Parse body of sms text
 		sms_body = txtparse(sms_body)
