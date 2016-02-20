@@ -1,15 +1,95 @@
 {% extends 'voting_base.html' %}
 {% block body %}
 
-<div>
-</div>
+<div class="plot_area" style="text-align:center;"></div>
 
 <script type="text/javascript">
+
+var plot_data
+var w_total = 1000;
+var h_total = 250;
+var barpadding = 1;
+var padding = 20;
+var pad_ratio = 0.05
+var margin = {top: 20, right: 10, bottom: 20, left: 50};
+// Form width/height of plot area allowing for margins
+var w = w_total - margin.left - margin.right,
+		h = h_total - margin.top - margin.bottom;
+
+svg = d3.select('.plot_area')
+						.append('svg')
+						.attr('width', w + margin.left + margin.right)
+						.attr('height', h + margin.top + margin.bottom)
+						.attr({'display': 'block', 'margin': '0 auto'})
+						.append('g')
+						.attr('transform', 'translate('+margin.left+','+margin.top+')');
+
+xScale = d3.scale.ordinal()
+							 .domain(d3.range(1,4))
+							 .rangeBands([0,w], pad_ratio);
+yScale = d3.scale.linear()
+							 .domain([0,10])
+							 .range([h,0]);
+
+// Build x-Axis from scale
+letobj = {1:'A', 2:'B', 3:'C'}
+xAxis = d3.svg.axis()
+						.scale(xScale)
+						.orient('bottom')
+						.tickFormat(function(d) {return letobj[d];})
+						// .tickValues(d3.range(start_yr,2011,20));
+svg.append('g')
+	 .attr('class', 'x axis')
+	 .attr('transform', 'translate(0,'+h+')')
+	 .call(xAxis);
+// Build y-Axis from scale
+yAxis = d3.svg.axis()
+						.scale(yScale)
+						.orient('left')
+						// .tickValues(d3.range(yScale.domain()[0], yScale.domain()[1]));
+svg.append('g')
+	 .attr('class', 'y axis')
+	//  .attr('transform', )
+	.call(yAxis)
 
 url = "/list_of_recordings";
 d3.json(url, function(json) {
 	console.log(json)
 });
+
+url = "/get_vote_data";
+d3.json(url, function(json) {
+	plot_data = json["data"]
+	update_bar(plot_data)
+});
+
+update_bar = function(inp_data) {
+	console.log('input data', inp_data);
+	// Update y scale
+	yScale = d3.scale.linear()
+								 .domain([0,d3.max(inp_data, function(d) {return d[1];})])
+								 .range([h,0]);
+	yAxis.scale(yScale);
+	// Update rects
+	var rects =
+		svg.selectAll('rect')
+			 .data(inp_data)
+			 .enter()
+			 .append('rect')
+			 .attr({
+				 'class': 'barRect',
+				//  Note that we here rescale our index to proper year
+				 'x': function(d) {return xScale(d[0]);},
+				 'y': function(d) {return yScale(d[1]);},
+				 'width': xScale.rangeBand(),
+				 'height': function(d) {return h-yScale(d[1]);},
+				 'fill': function(d) {
+					 return 'rgb(200,0,'
+					 +Math.floor((1-yScale(d[1])/h)*255)
+					 +')';}
+				 });
+
+}
 
 </script>
 

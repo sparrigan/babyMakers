@@ -1,13 +1,24 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
-		<title>Who makes the most babies?</title>
+		<meta charset='utf-8'>
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Are you ethical?</title>
+    <script type="text/javascript" src="{{ url_for('static', filename='d3/d3.js') }}"></script>
+		<style type='text/css'>
+			.axis path,
+			.axis line {
+				fill: none;
+				stroke: black;
+				shape-rendering: crispEdges;
+			}
+		</style>
   </head>
 
   <body>
     <center>
-			<h1 class='headline'>Celebrodisiac</h1>
-			<h4>"This page"</h4>
+			<h1 class='headline'>Are you ethical?</h1>
+			<h4>"DIS MAH DATA AND YOU GONNA KNOW ALL ABOUT MAH DATA"</h4>
       {% block body %}
       {% endblock %}
     </center>

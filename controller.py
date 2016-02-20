@@ -356,23 +356,41 @@ def celeb_score_route():
 
 # !!! Start temporary voting app !!!
 
-dict_of_responses = {"True": {"feb 3rd, 2015": [1,2,3,4,5,3,4,3]}, "False":[{"april 18th, 2015": [1,2,3,3,2,1]}]}
+dict_of_responses = {"True": {"feb 3rd, 2015": [1,2,3,3,3,2,2,1]}, "False":[{"april 18th, 2015": [1,2,3,3,2,1]}]}
 
-@app.route('/recieve_data', methods=["GET","POST"])
+chardic = {'a':1, 'b':2, 'c':3}
+def txtparse(string):
+	"""Parse input sms to detect a,b,c"""
+	PATTERN = "([a-cA-C])"
+	string.strip(" ")
+	if len(string) > 3:
+		return None
+	match = re.findall(PATTERN, string)
+	if len(match) == 1:
+		return chardic[match[0].lower()]
+
+@application.route('/voting', methods=['GET'])
+def voting_index():
+	"""Render voting app index template"""
+	return render_template('voting.html')
+
+@application.route('/recieve_data', methods=["GET","POST"])
 def recieve_data():
-    """Recieves incoming text data, if "True" is not None, add to list"""
-    if dict_of_responses["True"] != None:
-        sms_body = request.values.get("Body")
-        #get the name of the recording
-        recording_name = dict_of_responses["True"].keys()[0]
-        #look up by name of recording and add the sms to the list
-        dict_of_responses["True"][recording_name].append(sms_body)
-    resp = twilio.twiml.Response()
-    resp.message()
-    print dict_of_responses
-    return str(resp)
+	"""Recieves incoming text data, if "True" is not None, add to list"""
+	if dict_of_responses["True"] != None:
+		sms_body = request.values.get("Body")
+		#Parse body of sms text
+		sms_body = txtparse(sms_body)
+		#get the name of the recording
+		recording_name = dict_of_responses["True"].keys()[0]
+		#look up by name of recording and add the sms to the list
+		dict_of_responses["True"][recording_name].append(sms_body)
+	resp = twilio.twiml.Response()
+	resp.message()
+	print dict_of_responses
+	return str(resp)
 
-@app.route('/list_of_recordings')
+@application.route('/list_of_recordings')
 def list_of_recordings():
     """ Returns all names of recordings and which ones are active"""
     #name of the active recording
@@ -385,7 +403,7 @@ def list_of_recordings():
     all_recordings = {"active": active, "inactive": inactive}
     return json.dumps(all_recordings)
 
-@app.route('/start_recording/<name_of_recording>')
+@application.route('/start_recording/<name_of_recording>')
 def start_recording(name_of_recording):
     """ Given a name, check to see if there's a recording in the dict
     with that name, if so, set to active, if not, move current active to
@@ -433,7 +451,7 @@ def start_recording(name_of_recording):
     #return render_template("start_recording.json", recording_name=name_of_recording)
         return "Yay, name of recording is %s" % name_of_recording
 
-@app.route('/stop_recording')
+@application.route('/stop_recording')
 def stop_recording():
     """ Given a name of a recording, if that name is in "True", move it to
     "False" and set "True" to None, if it is not in "True", return an error """
@@ -448,6 +466,20 @@ def stop_recording():
         dict_of_responses["True"] = {None: "" }
         return "We have stopped recording WOOT!"
     return "You were not actively recording anything.. Whoops?"
+
+@application.route('/get_vote_data')
+def get_vote_data():
+	""" Returns all vote data in records for currently active recording
+	if a recording is active. Else returns None """
+	if "True" in dict_of_responses:
+		active = dict_of_responses["True"].keys()[0]
+		data = dict_of_responses["True"][active]
+		# Get counts of occurence of each number in data
+		hist_data = [[x,data.count(x)] for x in np.unique(data)]
+		return json.dumps({"name": active, "data": hist_data})
+	else:
+		return None
+
 
 
 # !!! End temporary voting app !!!
