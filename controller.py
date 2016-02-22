@@ -388,7 +388,7 @@ def get_sms_text():
 def recieve_data():
 	"""Recieves incoming text data, if "True" is not None, add to list"""
 	if dict_of_responses["True"] != None:
-		from_number = request.values.get('From', None)
+		from_number = request.values.get('Body', None)
 		# sms_body = "well something came through"
 		# sms_body = request.values.get("Body")
 		# sms_body = request.get_json(force=True)
