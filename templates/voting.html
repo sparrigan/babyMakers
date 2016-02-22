@@ -92,6 +92,8 @@ update_bar = function(inp_data) {
 			 .data(inp_data)
 			 .enter()
 			 .append('rect')
+			 .transition()
+			 .duration(500)
 			 .attr({
 				 'class': 'barRect',
 				//  Note that we here rescale our index to proper year
