@@ -92,6 +92,12 @@ update_bar = function(inp_data) {
 			 .data(inp_data)
 			 .enter()
 			 .append('rect')
+			 .attr({
+				 'x': function(d) {return xScale(d[0]);},
+				 'y': 0,
+				 'width': xScale.rangeBand(),
+				 'height': 0;}
+			 })
 			 .transition()
 			 .duration(500)
 			 .attr({
