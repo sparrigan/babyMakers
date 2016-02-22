@@ -388,27 +388,16 @@ def get_sms_text():
 def recieve_data():
 	"""Recieves incoming text data, if "True" is not None, add to list"""
 	if dict_of_responses["True"] != None:
-		from_number = request.values.get('Body', None)
-		# sms_body = "well something came through"
-		# sms_body = request.values.get("Body")
-		# sms_body = request.get_json(force=True)
-		# 	sms_body = request.values.get("Body")
-		# print "BODY OF SMS IS: ", sms_body
-		global smstext
-		# smstext = request.headers
-		smstext = from_number
+		sms_body = request.values.get('Body', None)
+		# global smstext
+		# # smstext = request.headers
+		# smstext = from_number
 		#Parse body of sms text
-
 		sms_body = txtparse(sms_body)
-
 		#get the name of the recording
-
 		recording_name = dict_of_responses["True"].keys()[0]
-
 		#look up by name of recording and add the sms to the list
-
 		dict_of_responses["True"][recording_name].append(sms_body)
-
 	resp = twilio.twiml.Response()
 	resp.message()
 	print dict_of_responses
