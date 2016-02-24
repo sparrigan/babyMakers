@@ -11,11 +11,11 @@
 
 var plot_data
 var w_total = 1000;
-var h_total = 250;
+var h_total = 450;
 var barpadding = 1;
 var padding = 20;
 var pad_ratio = 0.05
-var margin = {top: 20, right: 10, bottom: 20, left: 50};
+var margin = {top: 20, right: 10, bottom: 30, left: 50};
 // Form width/height of plot area allowing for margins
 var w = w_total - margin.left - margin.right,
 		h = h_total - margin.top - margin.bottom;
@@ -78,13 +78,15 @@ d3.json(url, function(json) {
 });
 
 update_bar = function(inp_data) {
-	console.log('input data', inp_data);
+	numticks = d3.max(inp_data,function(d){d[1]})
 	// Update y scale
 	yScale.domain([0,d3.max(inp_data, function(d) {return d[1];})])
 	yAxis = d3.svg.axis()
 							.scale(yScale)
 							.tickFormat(d3.format("d"))
 							.orient('left')
+							.ticks(5)
+							.tickSubdivide(numticks);
 
 	 svg.select('g.axis.y')
 				.call(yAxis);
