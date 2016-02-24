@@ -369,7 +369,14 @@ def txtparse(string):
 	PATTERN = "([a-cA-C])"
 	string.strip(" ")
 	if len(string) > 3:
-		return None
+		if string.lower() == 'always':
+			return 1
+		elif string.lower() == 'sometimes':
+			return 2
+		elif string.lower() == 'never':
+			return 3
+		else:
+			return None
 	match = re.findall(PATTERN, string)
 	if len(match) == 1:
 		return chardic[match[0].lower()]
