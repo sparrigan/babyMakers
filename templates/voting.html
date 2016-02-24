@@ -2,7 +2,7 @@
 {% block body %}
 
 <div class="plot_area" style="text-align:center;"></div>
-<div class="getsms">CLICK TO TEST SMS DATA RECIEVED</div>
+<!-- <div class="getsms">CLICK TO TEST SMS DATA RECIEVED</div> -->
 
 <script type="text/javascript">
 
@@ -17,15 +17,15 @@ var margin = {top: 20, right: 10, bottom: 20, left: 50};
 var w = w_total - margin.left - margin.right,
 		h = h_total - margin.top - margin.bottom;
 
-d3.select('.getsms')
-	.on('click',printsms)
+// d3.select('.getsms')
+// 	.on('click',printsms)
 
-function printsms() {
-		d3.json("/get_sms_text", function(json) {
-				console.log('Here it is: ', json)
-			}
-			)
-}
+// function printsms() {
+// 		d3.json("/get_sms_text", function(json) {
+// 				console.log('Here it is: ', json)
+// 			}
+// 			)
+// }
 
 svg = d3.select('.plot_area')
 						.append('svg')
@@ -43,7 +43,7 @@ yScale = d3.scale.linear()
 							 .range([h,0]);
 
 // Build x-Axis from scale
-letobj = {1:'A', 2:'B', 3:'C'}
+letobj = {1:'Always', 2:'Sometimes', 3:'Never'}
 xAxis = d3.svg.axis()
 						.scale(xScale)
 						.orient('bottom')
